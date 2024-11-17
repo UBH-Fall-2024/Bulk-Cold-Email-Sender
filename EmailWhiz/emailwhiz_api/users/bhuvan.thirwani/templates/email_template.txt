@@ -13,7 +13,7 @@
         <li><strong style="color: #333399;">Coding:</strong> Strong foundation in Data Structures & Algorithms. 69th & 64th Rank worldwide in two coding competitions.</li>
     </ul>
 
-    <p>[company's information due to which I have inspired and also write what you like about the company.]</p>
+    <p>[Information About the Company which inspired you and what you love most about the company]</p>
 
     <p>I have attached my resume for your review, and I'd love the opportunity to chat further about how my background aligns with the needs of your team. Please let me know if there's a convenient time for you to connect.</p>
 

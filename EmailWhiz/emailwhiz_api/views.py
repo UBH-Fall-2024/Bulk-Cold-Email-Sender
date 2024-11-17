@@ -10,6 +10,10 @@ from emailwhiz_api.email_sender import send_email
 from .forms import ResumeSelectionForm, TemplateSelectionForm
 import os
 
+import pytz
+
+from datetime import datetime
+
 import google.generativeai as genai
 from django.shortcuts import render
 from django.http import JsonResponse
@@ -256,11 +260,11 @@ def email_generator_post(request):
             content = f.read()
         print("Resume_PATH: ", resume_path)
         # Extract text from the selected resume
-        extracted_text = extract_text_from_pdf(resume_path)
-        print("extracted_text: ", extracted_text)
-        # Create prompt for Gemini
+        # extracted_text = extract_text_from_pdf(resume_path)
+        # print("extracted_text: ", extracted_text)
+        # # Create prompt for Gemini
 
-        details['resume'] = extracted_text
+        # details['resume'] = extracted_text
 
         data = []
         print(request.POST)
@@ -295,15 +299,20 @@ def email_generator_post(request):
             # prompt = get_template(_details)
 
             prompt = f"""
-                I want to send a cold email to recruiter, and I want to use your response directly in the API.  I want you to generate an email based on the below template: 
-                {content}
-                employer details are: 
-                first_name: {emp_data['first_name']},
-                email: {emp_data['email']},
-                company: {emp_data['company']},
-                job_role: {emp_data['job_role']}
-                I want you to fill up the values in the boxes []. I just want the body of the generated email template in response from your side as I want to use this in an API, so please give me only the body (without subject) in HTML
-            """            
+                I want to send a cold email to recruiter, and I want to use your response directly in the API.  I want you to generate an email based on the below template:\n\n 
+                {content}\n\n
+                \n\n Employer details are: \n
+                first_name: {emp_data['first_name']},\n
+                email: {emp_data['email']},\n
+                company: {emp_data['company']},\n
+                job_role: {emp_data['job_role']}\n
+                Few things you need to keep in mind:\n
+                1. I want you to fill up the values in all of the boxes []. Don't miss anyone of them. The response should not contain [....] like thing. If possible search on internet. \n 
+                2. I just want the content of the generated email template in response from your side as I want to use this in an API, so my application is totally dependent on you, so please give me only the content (without subject) in HTML format. \n 
+                3. I want your response as: <html><body>Email Body</body></html> & I want your response in the normal response text block, not in code block so that I can use your response in the API
+            """      
+
+            print("Prompt: ", prompt)      
             # Call Gemini API
             response = call_gemini_api(prompt, model)
             print("Response: ", response)
@@ -342,6 +351,41 @@ def call_gemini_api(prompt, model):
     return response
 
 
+def update_email_history(username, receiver_email, subject, content, company, designation):
+    # Path to the user's directory
+    user_dir = os.path.join(settings.MEDIA_ROOT, username)
+    os.makedirs(user_dir, exist_ok=True)
+    
+    # Path to the history.json file
+    history_file = os.path.join(user_dir, 'history.json')
+    
+    # Load or initialize the history data
+    if os.path.exists(history_file):
+        with open(history_file, 'r') as file:
+            history_data = json.load(file)
+    else:
+        history_data = {"history": []}
+    
+# Define the US Eastern timezone
+
+    # Get the current date in the US Eastern timezone
+    date = datetime.now().strftime('%Y-%m-%d')
+
+    # Find the recipient's history, or create a new one if it doesn't exist
+    recipient_history = next((item for item in history_data["history"] if item["receiver_email"] == receiver_email), None)
+    if recipient_history:
+        recipient_history["emails"].append({"subject": subject, "content": content, "designation": designation,
+            "date": date,})
+    else:
+        history_data["history"].append({
+            "receiver_email": receiver_email,
+            "company": company,
+            "emails": [{"subject": subject, "content": content, "designation": designation, "date": date,}]
+        })
+    
+    # Save the updated history data
+    with open(history_file, 'w') as file:
+        json.dump(history_data, file, indent=4)
 def send_emails(request):
     print("123")
     if request.method == 'POST':
@@ -354,16 +398,89 @@ def send_emails(request):
 
         for employer in data:
             name = employer['first_name'] 
-            sender_email = employer['email']
+            receiver_email = employer['email']
             designation = employer['job_role']
             company_name = employer['company']
             message = employer['email_content']
             resume_path = employer['resume_path']
             subject = f"[{name}]: Exploring {designation} Roles at {company_name}"
         
-            send_email(details['gmail_id'], details['gmail_in_app_password'], sender_email, subject, message, resume_path)
-
+            send_email(details['gmail_id'], details['gmail_in_app_password'], receiver_email, subject, message, resume_path)
+            update_email_history(details['username'], receiver_email, subject, message, company_name, designation)
     print("Success")
     return HttpResponse("success")
             
 
+
+def generate_followup(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        receiver_email = data["receiver_email"]
+        details= get_user_details(request.user)
+        username = details['username']
+
+        # Load email history
+        user_dir = os.path.join(settings.MEDIA_ROOT, username)
+        history_file = os.path.join(user_dir, 'history.json')
+        with open(history_file, 'r') as file:
+            history_data = json.load(file)
+
+        # Get the last 2 emails
+        recipient_history = next((item for item in history_data["history"] if item["receiver_email"] == receiver_email), None)
+        if not recipient_history:
+            return JsonResponse({"error": "No history found for this recipient."}, status=400)
+
+        previous_emails = recipient_history["emails"][-2:] if len(recipient_history["emails"]) > 1 else recipient_history["emails"]
+        prompt = "\n\n".join([f"Subject: {email['subject']}\nContent: {email['content']}" for email in previous_emails]) + """
+        \n\nGenerate a follow-up email based on the above emails in HTML Format. I want to use your response in an API, so give me only the body as your response. \n 
+        Give me the response as a json string which I can decode easily in my code for example: {'subject': 'Subject Generated', 'content': '<html><body>Email Body</body></html>'}\n
+        I want your response in the normal response text block, not in code block so that I can use your response in the API.\n
+        In your response, there should not be any boxes [mention something..]. I don't want to fill the values manuaaly not even date.\n
+        Again, give me your response as text block in the format {.....} not in json or code block."""
+
+        details = get_user_details(request.user)
+        gemini_api_key = details['gemini_api_key']
+
+        genai.configure(api_key=gemini_api_key)
+        # Create the model
+        generation_config = {
+        "temperature": 1,
+        "top_p": 0.95,
+        "top_k": 40,
+        "max_output_tokens": 8192,
+        "response_mime_type": "text/plain",
+        }
+
+        model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash",
+        generation_config=generation_config,
+        )
+        print("Prompt: ", prompt)
+        response = call_gemini_api(prompt, model)
+        print("Response: ", response.text)
+        if response.text[:7] == '```json':
+            cleaned_resp = response.text[8:-4]
+            print("cleaning..", cleaned_resp.find('{'))
+        else:
+            cleaned_resp = response.text
+        print("Cleaned_resp: ", cleaned_resp)
+        data = json.loads(cleaned_resp)
+        print("Data: ", data)
+        return JsonResponse({"subject": data["subject"], "content": data["content"]})
+        
+
+
+def send_followup(request):
+    if request.method == "POST":
+        details = get_user_details(request.user)
+        username = details['username']
+        data = json.loads(request.body)
+        receiver_email = data["receiver_email"]
+        content = data["content"]
+        subject = data["subject"]
+
+        send_email(details['gmail_id'], details['gmail_in_app_password'], receiver_email, subject, content, '')
+
+        update_email_history(username, receiver_email, subject, content)
+        return redirect('email_history')
+        

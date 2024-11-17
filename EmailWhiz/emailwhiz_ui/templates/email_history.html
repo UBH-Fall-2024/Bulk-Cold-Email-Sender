@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email History</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-6xl mx-auto bg-white p-8 rounded-lg shadow-md">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">Email History</h1>
+
+        <!-- Search Bar -->
+        <div class="mb-6">
+            <input
+                id="searchInput"
+                type="text"
+                placeholder="Search by Company"
+                class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                oninput="filterByCompany()"
+            />
+        </div>
+
+        <!-- Group Emails by Company -->
+        <div id="companyHistory" class="space-y-8">
+            {% for company, recipients in history_by_company.items %}
+            <div class="company-card mb-8" data-company="{{ company|lower }}">
+                <!-- Company Name -->
+                <h2 class="text-2xl font-bold text-gray-700">{{ company }}</h2>
+
+                <!-- Loop through recipients for each company -->
+                {% for recipient in recipients %}
+                <div class="mb-6">
+                    <h3 class="text-xl font-bold text-gray-700">{{ recipient.receiver_email }}</h3>
+                    <ul class="mt-4 space-y-4">
+                        <!-- Loop through emails for each recipient -->
+                        {% for email in recipient.emails %}
+                        <li class="flex items-center justify-between bg-gray-100 p-4 rounded-lg">
+                            <div>
+                                <span class="font-semibold text-gray-800">{{ email.subject }}</span>
+                            </div>
+                            <button 
+                                onclick="openModal('{{ email.subject|escapejs }}', '{{ email.content|escapejs }}')"
+                                class="text-blue-500 hover:underline"
+                            >
+                                Preview
+                            </button>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div class="mt-4 text-right">
+                        <button 
+                            onclick="generateFollowup('{{ recipient.receiver_email }}')"
+                            class="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600"
+                        >
+                            Send Follow-up Email
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Modal for Email Preview -->
+    <div id="previewModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 hidden">
+        <div class="bg-white w-1/2 max-h-screen p-6 rounded shadow-lg overflow-hidden">
+            <h3 class="font-semibold text-gray-800 text-lg mb-4">Email Preview</h3>
+            <div class="overflow-y-auto max-h-96 p-4 bg-gray-50 rounded">
+                <div>
+                    <strong>Subject:</strong>
+                    <div id="modalSubject" class="text-gray-700 mb-4"></div>
+                </div>
+                <div>
+                    <strong>Content:</strong>
+                    <div id="modalContent" class="text-gray-700 whitespace-pre-wrap"></div>
+                </div>
+            </div>
+            <div class="text-right mt-4">
+                <button 
+                    onclick="closeModal()" 
+                    class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Follow-Up Email Preview -->
+    <div id="followupModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 hidden">
+        <div class="bg-white w-1/2 max-h-screen p-6 rounded shadow-lg overflow-hidden">
+            <h3 class="font-semibold text-gray-800 text-lg mb-4">Follow-Up Email Preview</h3>
+            <div class="overflow-y-auto max-h-96 p-4 bg-gray-50 rounded">
+                <div>
+                    <strong>Subject:</strong>
+                    <div id="followupSubject" class="text-gray-700 mb-4"></div>
+                </div>
+                <div>
+                    <strong>Content:</strong>
+                    <div id="followupContent" class="text-gray-700 whitespace-pre-wrap"></div>
+                </div>
+
+                <!-- Resume Selection Form -->
+                <h2 class="text-xl font-bold mb-4">Select a Resume</h2>
+                <form id="resumeForm" action="{% url 'send_followup' %}" method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="receiver_email" id="receiverEmail">
+                    <input type="hidden" name="subject" id="followupSubjectInput">
+                    <input type="hidden" name="content" id="followupContentInput">
+                    
+                    <ul class="space-y-4">
+                        {% for resume in resumes %}
+                            <li class="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
+                                <span>{{ resume }}</span>
+                                <input type="radio" name="selected_resume" value="{{ resume }}" required>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    
+                    <button type="submit" class="mt-4 w-full bg-green-500 text-white py-2 rounded hover:bg-green-600">Send Follow-Up Email</button>
+                </form>
+            </div>
+
+            <div class="flex justify-between mt-4">
+                <button onclick="closeFollowupModal()" class="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600">Cancel</button>
+                <button onclick="regenerateFollowup()" class="bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600">Regenerate</button>
+                <button onclick="confirmFollowup()" class="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let receiverEmail = null;
+
+        // Function to open the email preview modal
+        function openModal(subject, content) {
+            document.getElementById("modalSubject").textContent = subject;
+            document.getElementById("modalContent").innerHTML = content;
+            document.getElementById("previewModal").classList.remove("hidden");
+        }
+    
+        // Function to close the email preview modal
+        function closeModal() {
+            document.getElementById("previewModal").classList.add("hidden");
+        }
+
+        // Function to generate the follow-up email
+        async function generateFollowup(email) {
+            receiverEmail = email;
+            const response = await fetch("{% url 'generate_followup' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": "{{ csrf_token }}"
+                },
+                body: JSON.stringify({ receiver_email: email })
+            });
+    
+            const data = await response.json();
+            document.getElementById("followupSubject").textContent = data.subject;
+            document.getElementById("followupContent").innerHTML = data.content;
+            document.getElementById("followupSubjectInput").value = data.subject;
+            document.getElementById("followupContentInput").value = data.content;
+            document.getElementById("receiverEmail").value = email;
+
+            document.getElementById("followupModal").classList.remove("hidden");
+        }
+    
+        // Function to close the follow-up modal
+        function closeFollowupModal() {
+            document.getElementById("followupModal").classList.add("hidden");
+        }
+    
+        // Function to confirm and send the follow-up email
+        async function confirmFollowup() {
+            const subject = document.getElementById("followupSubjectInput").value;
+            const content = document.getElementById("followupContentInput").value;
+            const selectedResume = document.querySelector('input[name="selected_resume"]:checked').value;
+
+            const response = await fetch("{% url 'send_followup' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": "{{ csrf_token }}"
+                },
+                body: JSON.stringify({ receiver_email: receiverEmail, subject, content, selected_resume })
+            });
+    
+            if (response.ok) {
+                alert("Follow-Up Email Sent Successfully!");
+                closeFollowupModal();
+            } else {
+                alert("Failed to send the email. Please try again.");
+            }
+        }
+
+        // Function to regenerate the follow-up email (optional)
+        function regenerateFollowup() {
+            generateFollowup(receiverEmail);
+        }
+
+        // Function to filter emails by company name
+        function filterByCompany() {
+            const searchValue = document.getElementById("searchInput").value.toLowerCase();
+            const companyCards = document.querySelectorAll(".company-card");
+
+            companyCards.forEach(card => {
+                const companyName = card.dataset.company;
+                if (companyName.includes(searchValue)) {
+                    card.style.display = "block";
+                } else {
+                    card.style.display = "none";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
