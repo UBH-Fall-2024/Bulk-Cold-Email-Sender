@@ -34,10 +34,13 @@ class CustomUserCreationForm(UserCreationForm):
         required=True
     )  # New Graduated field
     college = forms.CharField(max_length=200, required=False)  # New College field (optional)
-
+    degree_name = forms.CharField(max_length=200, required=False)
+    gmail_id = forms.CharField(max_length=200, required=True)
+    gmail_in_app_password = forms.CharField(max_length=50, required=True)
+    gemini_api_key = forms.CharField(max_length=200, required=True)
     class Meta:
         model = CustomUser
-        fields = ['username', 'first_name', 'last_name', 'phone_number', 'linkedin_url', 'email', 'graduated_or_not', 'college', 'password1', 'password2']
+        fields = ['username', 'first_name', 'last_name', 'phone_number', 'linkedin_url', 'email', 'graduated_or_not', 'college', 'degree_name', 'password1', 'password2', 'gmail_id', 'gmail_in_app_password', 'gemini_api_key']
 
     def clean(self):
         cleaned_data = super().clean()

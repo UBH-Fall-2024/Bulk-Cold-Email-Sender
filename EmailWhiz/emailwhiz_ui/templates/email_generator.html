@@ -12,13 +12,14 @@
         <div class="flex items-center justify-between mb-6">
             <h2 class="text-2xl font-bold text-gray-800">Email Generator</h2>
             
-            <a href="{% url 'suggestions_view' %}" id="getSuggestions" class="bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500">
+            <!-- <a href="{% url 'suggestions_view' %}" id="getSuggestions" class="bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600 focus:outline-none focus:ring-2 disabled:opacity-75 focus:ring-yellow-500">
                 Get Suggestions
-            </a>
+            </a> -->
         </div>
         <form id="emailForm" method="POST" action="{% url 'email_generator_post' %}">
             {% csrf_token %}
             <input type="hidden" name="resume" value="{{resume}}">
+            <input type="hidden" name="template" value="{{template}}">
             <table class="w-full mb-6">
                 <thead>
                     <tr class="text-left bg-gray-200">

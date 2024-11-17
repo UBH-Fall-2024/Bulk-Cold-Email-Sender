@@ -13,7 +13,11 @@ class CustomUser(AbstractUser):
         default='no',  # Default to 'No'
     )  # New Graduation status field
     college = models.CharField(max_length=200, null=True, blank=True)  # New College field
-
+    degree_name = models.CharField(max_length=200, null=True, blank=True)
+    gmail_id = models.CharField(max_length=200, null=True, blank=True)
+    gmail_in_app_password = models.CharField(max_length=200, null=True, blank=True)
+                
+    gemini_api_key = models.CharField(max_length=200, null=True, blank=True)
     # Add related_name to avoid clash
     groups = models.ManyToManyField(
         'auth.Group',

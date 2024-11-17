@@ -1,0 +1,36 @@
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Templates</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="max-w-lg w-full bg-white p-6 rounded-lg shadow-lg">
+        <h2 class="text-2xl font-bold mb-6 text-center">Create New Email Template</h2>
+        <form method="POST" action="{% url 'create_template_post' %}">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="block text-gray-700 font-semibold mb-2">Template Title</label>
+                <input type="text" name="template_title" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500" placeholder="Enter template title">
+            </div>
+            <div class="mb-6">
+                <label class="block text-gray-700 font-semibold mb-2">Template Content</label>
+                <textarea name="template_content" rows="10" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500" placeholder="Write your template here..."></textarea>
+            </div>
+            <div class="flex justify-center">
+                <button type="submit" class="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 focus:outline-none">Save Template</button>
+            </div>
+        </form>
+        <div class="text-center mt-6">
+            <a href="{% url 'list_templates' %}" class="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600">List Templates</a>
+            <a href="{% url 'home' %}" class="bg-purple-500 text-white py-2 px-4 rounded hover:bg-purple-600 ml-2">Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -63,6 +63,7 @@
     
     <form id="resumeForm" action="{% url 'email_generator' %}" method="POST">
         {% csrf_token %}
+        <input type="hidden" name="selected_template" value="{{ selected_template }}">
         <ul class="space-y-4">
             {% for resume in resumes %}
                 <li class="flex items-center justify-between bg-gray-100 p-3 rounded-lg">

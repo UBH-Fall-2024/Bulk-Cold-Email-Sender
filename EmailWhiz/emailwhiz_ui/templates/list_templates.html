@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Templates</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="max-w-2xl w-full bg-white p-6 rounded-lg shadow-lg">
+        <h2 class="text-2xl font-bold mb-6 text-center">My Email Templates</h2>
+
+        {% if templates %}
+            <ul class="divide-y divide-gray-300">
+                {% for template in templates %}
+                    <li class="py-4 flex items-center justify-between">
+                        <span class="text-gray-800 font-semibold">{{ template.name }}</span>
+                        <button onclick="openModal('{{ template.content|escapejs }}')" class="text-blue-500 hover:underline">View</button>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-gray-700 text-center">No templates found. Create one!</p>
+        {% endif %}
+
+        <div class="text-center mt-6">
+            <a href="{% url 'create_template' %}" class="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600">Create New Template</a>
+            <a href="{% url 'home' %}" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 ml-2">Back to Home</a>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="previewModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-3/4 max-w-lg">
+            <h3 class="text-xl font-semibold mb-4">Template Preview</h3>
+            <div id="modalContent" class="text-gray-700 whitespace-pre-wrap"></div>
+            <button onclick="closeModal()" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function openModal(content) {
+            // Set the content in the modal
+            document.getElementById('modalContent').textContent = content;
+
+            // Show the modal
+            document.getElementById('previewModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            // Hide the modal
+            document.getElementById('previewModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

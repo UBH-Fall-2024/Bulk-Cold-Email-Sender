@@ -1,24 +1,58 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-lg">
-    <h2 class="text-2xl font-semibold mb-4">Select Email Template</h2>
-    <form method="post">
-        {% csrf_token %}
-        <div class="space-y-4">
-            <label for="use_gemini" class="flex items-center">
-                {{ form.use_gemini }} 
-                <span class="ml-2">Generate with Gemini</span>
-            </label>
-            {{ form.template_type.label_tag }}
-            {{ form.template_type }}
-            <label for="template_choice" class="block mt-2">Choose Template</label>
-            <select name="template_choice" class="w-full border-gray-300 rounded-md" {% if form.use_gemini.value %}disabled{% endif %}>
-                {% for choice in form.template_choice.field.choices %}
-                    <option value="{{ choice.0 }}">{{ choice.1 }}</option>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Email Template</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-3xl">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Select an Email Template</h2>
+
+        <form id="templateForm" action="{% url 'list_resumes' %}" method="POST">
+            {% csrf_token %}
+            <ul class="space-y-4">
+                {% for template in templates %}
+                    <li class="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
+                        <label class="flex items-center space-x-3">
+                            <!-- Square radio button on the left -->
+                            <input type="radio" name="selected_template" value="{{ template.name }}" class="form-radio text-blue-500 h-5 w-5" required>
+                            <span class="text-gray-800 font-semibold">{{ template.name }}</span> <!-- Template name without ".txt" -->
+                        </label>
+                        <!-- Preview button on the right -->
+                        <button type="button" onclick="openModal('{{ template.content|escapejs }}')" class="text-blue-500 hover:underline">Preview</button>
+                    </li>
                 {% endfor %}
-            </select>
+            </ul>
+
+            <button type="submit" class="mt-4 w-full bg-green-500 text-white py-2 rounded hover:bg-green-600">Next</button>
+        </form>
+    </div>
+
+    <!-- Modal for Template Preview -->
+    <div id="templateModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 hidden">
+        <div class="bg-white w-1/2 p-6 rounded shadow-lg">
+            <h3 class="font-semibold text-gray-800 text-lg mb-4">Template Preview</h3>
+            <div id="contentPreview" class="text-gray-700 whitespace-pre-wrap mb-4"></div>
+            <div class="text-right">
+                <button onclick="closeModal()" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">Close</button>
+            </div>
         </div>
-        <button type="submit" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded">Next</button>
-    </form>
-</div>
-{% endblock %}
+    </div>
+
+    <script>
+        // Function to handle showing the modal and template content
+        function openModal(content) {
+            const contentPreview = document.getElementById("contentPreview");
+            contentPreview.textContent = content;
+            document.getElementById("templateModal").classList.remove("hidden");
+        }
+
+        // Function to close the modal
+        function closeModal() {
+            document.getElementById("templateModal").classList.add("hidden");
+        }
+    </script>
+</body>
+</html>

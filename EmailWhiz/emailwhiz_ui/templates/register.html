@@ -120,7 +120,20 @@
                     </div>
                 {% endif %}
             </div>
-
+            <div>
+                <label for="degree_name" class="block text-gray-700 font-semibold">Degree Name</label>
+                <input type="text" name="degree_name" id="degree_name"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value="{{ form.degree_name.value|default:'' }}">
+                {% if form.degree_name.errors %}
+                    <div class="text-red-500 text-sm mt-1">
+                        {% for error in form.degree_name.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
             <div>
                 <label for="username" class="block text-gray-700 font-semibold">Username</label>
                 <input type="text" name="username" id="username"
@@ -162,6 +175,51 @@
                 {% if form.password2.errors %}
                     <div class="text-red-500 text-sm mt-1">
                         {% for error in form.password2.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+            </div>
+            <div>
+                <label for="gmail_id" class="block text-gray-700 font-semibold">Gmail ID</label>
+                <input type="text" name="gmail_id" id="gmail_id"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value="{{ form.gmail_id.value|default:'' }}">
+
+                {% if form.gmail_id.errors %}
+                    <div class="text-red-500 text-sm mt-1">
+                        {% for error in form.gmail_id.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+            </div>
+            <div>
+                <label for="gmail_in_app_password" class="block text-gray-700 font-semibold">Gmail In App Password</label>
+                <input type="text" name="gmail_in_app_password" id="gmail_in_app_password"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value="{{ form.gmail_in_app_password.value|default:'' }}">
+
+                {% if form.gmail_in_app_password.errors %}
+                    <div class="text-red-500 text-sm mt-1">
+                        {% for error in form.gmail_in_app_password.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+            </div>
+            <div>
+                <label for="gemini_api_key" class="block text-gray-700 font-semibold">Gemini API Key</label>
+                <input type="text" name="gemini_api_key" id="gemini_api_key"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value="{{ form.gemini_api_key.value|default:'' }}">
+
+                {% if form.gemini_api_key.errors %}
+                    <div class="text-red-500 text-sm mt-1">
+                        {% for error in form.gemini_api_key.errors %}
                             <p>{{ error }}</p>
                         {% endfor %}
                     </div>
