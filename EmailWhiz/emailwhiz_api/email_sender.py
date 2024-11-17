@@ -32,10 +32,7 @@ def send_email(sender_email, sender_password, recipient_email, subject, message,
         message (str): Email body message.
         company_name (str): Name of the company.
     """
-    resume_filename = resume_path.split('\\')[-1]  # Update as necessary
-    print("OSPath", os.getcwd(), resume_filename)
-    # resume_path = os.path.join("/", resume_filename)
-    print("resume_path:", resume_path)
+    
     logger.info(f"Sending email to: {recipient_email}")
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
@@ -50,10 +47,15 @@ def send_email(sender_email, sender_password, recipient_email, subject, message,
         # msg.attach(MIMEText(message, 'plain'))
         msg.attach(MIMEText(message, 'html')) # uncomment if you want your message to be formatted
         
-        with open(resume_path, 'rb') as file:
-            resume_attachment = MIMEApplication(file.read(), Name=resume_filename)
-        resume_attachment['Content-Disposition'] = f'attachment; filename="{resume_filename}"'
-        msg.attach(resume_attachment)
+        if resume_path:
+            resume_filename = resume_path.split('\\')[-1]  # Update as necessary
+            print("OSPath", os.getcwd(), resume_filename)
+            # resume_path = os.path.join("/", resume_filename)
+            print("resume_path:", resume_path)
+            with open(resume_path, 'rb') as file:
+                resume_attachment = MIMEApplication(file.read(), Name=resume_filename)
+            resume_attachment['Content-Disposition'] = f'attachment; filename="{resume_filename}"'
+            msg.attach(resume_attachment)
         
         server.sendmail(sender_email, recipient_email, msg.as_string())
         logger.info(f"Email sent successfully to {recipient_email}")
