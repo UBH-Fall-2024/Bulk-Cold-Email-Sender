@@ -33,6 +33,7 @@ CustomUser = get_user_model()
 from dotenv import load_dotenv
 load_dotenv()
 
+
 def get_template(details):
     template = '''Giving you my text of resume.\n
     {resume} 
@@ -407,6 +408,7 @@ def send_emails(request):
         
             send_email(details['gmail_id'], details['gmail_in_app_password'], receiver_email, subject, message, resume_path)
             update_email_history(details['username'], receiver_email, subject, message, company_name, designation)
+
     print("Success")
     return HttpResponse("success")
             
