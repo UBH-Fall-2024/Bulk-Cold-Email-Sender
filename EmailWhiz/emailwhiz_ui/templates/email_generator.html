@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add details of employers</title>
+    <title>Add Details of Employers</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
@@ -11,15 +11,32 @@
     <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-4xl">
         <div class="flex items-center justify-between mb-6">
             <h2 class="text-2xl font-bold text-gray-800">Email Generator</h2>
-            
-            <!-- <a href="{% url 'suggestions_view' %}" id="getSuggestions" class="bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600 focus:outline-none focus:ring-2 disabled:opacity-75 focus:ring-yellow-500">
-                Get Suggestions
-            </a> -->
         </div>
         <form id="emailForm" method="POST" action="{% url 'email_generator_post' %}">
             {% csrf_token %}
             <input type="hidden" name="resume" value="{{resume}}">
             <input type="hidden" name="template" value="{{template}}">
+
+            <!-- Fields to populate Company and Role -->
+            <div class="mb-6 flex space-x-4">
+                <input 
+                    type="text" 
+                    id="populateCompany" 
+                    placeholder="Enter Company Name for All Rows" 
+                    class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input 
+                    type="text" 
+                    id="populateRole" 
+                    placeholder="Enter Job Role for All Rows" 
+                    class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button 
+                    type="button" 
+                    id="applyToAll" 
+                    class="bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    Apply to All
+                </button>
+            </div>
+
             <table class="w-full mb-6">
                 <thead>
                     <tr class="text-left bg-gray-200">
@@ -28,6 +45,7 @@
                         <th class="p-2">Email</th>
                         <th class="p-2">Company Name</th>
                         <th class="p-2">Job Role</th>
+                        <th class="p-2">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody">
@@ -37,9 +55,29 @@
                         <td><input type="email" name="email" placeholder="Email" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></td>
                         <td><input type="text" name="company" placeholder="Company Name" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></td>
                         <td><input type="text" name="job_role" placeholder="Job Role" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></td>
+                        <td class="text-center">
+                            <button 
+                                type="button" 
+                                class="deleteRow bg-red-500 text-white py-1 px-2 rounded hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                Delete
+                            </button>
+                        </td>
                     </tr>
                 </tbody>
             </table>
+
+            <!-- Checkbox for AI Email Generation -->
+            <div class="mb-6">
+                <label for="useAI" class="flex items-center">
+                    <input
+                        type="checkbox"
+                        id="useAI"
+                        name="use_ai"
+                        class="h-5 w-5 text-blue-500 focus:ring-blue-400 border-gray-300 rounded"
+                    />
+                    <span class="ml-2 text-lg text-gray-700">Do you want to use AI to generate emails?</span>
+                </label>
+            </div>
 
             <div class="flex justify-between">
                 <button type="button" id="addRow" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -53,12 +91,12 @@
 
         <div id="message" class="mt-4"></div>
     </div>
+
     <script>
         // Function to add a new row to the table
         document.getElementById('addRow').addEventListener('click', function() {
             const tableBody = document.getElementById('tableBody');
             const newRow = document.createElement('tr');
-            newRow.classList.add('data-row'); // Add a class to the new row for future reference
 
             newRow.innerHTML = `
                 <td><input type="text" name="first_name" placeholder="First Name" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></td>
@@ -66,11 +104,37 @@
                 <td><input type="email" name="email" placeholder="Email" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></td>
                 <td><input type="text" name="company" placeholder="Company Name" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></td>
                 <td><input type="text" name="job_role" placeholder="Job Role" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></td>
+                <td class="text-center">
+                    <button 
+                        type="button" 
+                        class="deleteRow bg-red-500 text-white py-1 px-2 rounded hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500">
+                        Delete
+                    </button>
+                </td>
             `;
-            
+
             tableBody.appendChild(newRow);
         });
 
+        // Function to populate Company and Role for all rows
+        document.getElementById('applyToAll').addEventListener('click', function() {
+            const companyValue = document.getElementById('populateCompany').value;
+            const roleValue = document.getElementById('populateRole').value;
+            const rows = document.querySelectorAll('#tableBody tr');
+
+            rows.forEach(row => {
+                row.querySelector('input[name="company"]').value = companyValue;
+                row.querySelector('input[name="job_role"]').value = roleValue;
+            });
+        });
+
+        // Event delegation to handle row deletion
+        document.getElementById('tableBody').addEventListener('click', function(event) {
+            if (event.target.classList.contains('deleteRow')) {
+                const row = event.target.closest('tr');
+                row.remove();
+            }
+        });
     </script>
 </body>
 </html>
