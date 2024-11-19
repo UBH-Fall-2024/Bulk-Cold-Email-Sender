@@ -234,26 +234,14 @@ def email_generator_post(request):
         details = get_user_details(request.user)
         gemini_api_key = details['gemini_api_key']
 
-        genai.configure(api_key=gemini_api_key)
-        # Create the model
-        generation_config = {
-        "temperature": 1,
-        "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 8192,
-        "response_mime_type": "text/plain",
-        }
-
-        model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
-        generation_config=generation_config,
-        )
-
-
-        print("LL: ", details)
+        
+        print("Request Dict: ", request.__dict__)
+        print("Details emails_generator_post: ", details)
         username = details['username']
         selected_resume = request.POST.get('resume')
         selected_template = request.POST.get('template')
+        use_ai = request.POST.get("use_ai", "off") == "on"
+        print("1use_ai", use_ai)
         resume_path = os.path.join(settings.MEDIA_ROOT, username, 'resumes', selected_resume)
         selected_template = request.POST.get('template')
         template_path = os.path.join(settings.MEDIA_ROOT, username, 'templates', selected_template)
@@ -270,7 +258,7 @@ def email_generator_post(request):
         data = []
         print(request.POST)
         rows = len(request.POST.getlist('first_name'))  # Get the number of rows
-        print(rows)
+        print("rows", rows)
         resume = request.POST.get('resume')
 
         for i in range(rows):
@@ -298,28 +286,48 @@ def email_generator_post(request):
             }
 
             # prompt = get_template(_details)
+            print("2use_ai: ", use_ai)
+            if use_ai:
+                genai.configure(api_key=gemini_api_key)
+                # Create the model
+                generation_config = {
+                "temperature": 1,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 8192,
+                "response_mime_type": "text/plain",
+                }
 
-            prompt = f"""
-                I want to send a cold email to recruiter, and I want to use your response directly in the API.  I want you to generate an email based on the below template:\n\n 
-                {content}\n\n
-                \n\n Employer details are: \n
-                first_name: {emp_data['first_name']},\n
-                email: {emp_data['email']},\n
-                company: {emp_data['company']},\n
-                job_role: {emp_data['job_role']}\n
-                Few things you need to keep in mind:\n
-                1. I want you to fill up the values in all of the boxes []. Don't miss anyone of them. The response should not contain [....] like thing. If possible search on internet. \n 
-                2. I just want the content of the generated email template in response from your side as I want to use this in an API, so my application is totally dependent on you, so please give me only the content (without subject) in HTML format. \n 
-                3. I want your response as: <html><body>Email Body</body></html> & I want your response in the normal response text block, not in code block so that I can use your response in the API
-            """      
+                model = genai.GenerativeModel(
+                model_name="gemini-1.5-flash",
+                generation_config=generation_config,
+                )
 
-            print("Prompt: ", prompt)      
-            # Call Gemini API
-            response = call_gemini_api(prompt, model)
-            print("Response: ", response)
-            emp_data['email_content'] = response.text
+                prompt = f"""
+                    I want to send a cold email to recruiter, and I want to use your response directly in the API.  I want you to generate an email based on the below template:\n\n 
+                    {content}\n\n
+                    \n\n Employer details are: \n
+                    first_name: {emp_data['first_name']},\n
+                    email: {emp_data['email']},\n
+                    company: {emp_data['company']},\n
+                    job_role: {emp_data['job_role']}\n
+                    Few things you need to keep in mind:\n
+                    1. I want you to fill up the values in all of the boxes []. Don't miss anyone of them. The response should not contain [....] like thing. If possible search on internet. \n 
+                    2. I just want the content of the generated email template in response from your side as I want to use this in an API, so my application is totally dependent on you, so please give me only the content (without subject) in HTML format. \n 
+                    3. I want your response as: <html><body>Email Body</body></html> & I want your response in the normal response text block, not in code block so that I can use your response in the API
+                """      
+
+                print("Prompt: ", prompt)      
+                # Call Gemini API
+                response = call_gemini_api(prompt, model)
+                print("Response: ", response)
+                emp_data['email_content'] = response.text
+            else:
+                message = content.format(first_name=first_name, last_name=last_name, email=recruiter_email, company_name=target_company, designation=target_role)
+                emp_data['email_content'] = message
+                
             data.append(emp_data)
-
+        print("data: ", data)
         return render(request, 'view_generated_emails.html', {'data': data})
     else:
         return redirect('list_resumes')
