@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-lg">
+    <h2 class="text-2xl font-semibold mb-4">Upload Excel File</h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="space-y-4">
+            <label class="block">Choose Excel file</label>
+            <input type="file" name="excel" class="w-full border border-gray-300 p-2 rounded-md" required>
+        </div>
+        <button type="submit" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded">Upload and Preview</button>
+    </form>
+</div>
+{% endblock %}

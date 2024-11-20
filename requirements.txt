@@ -1,0 +1,6 @@
+django
+djangorestframework
+PyPDF2
+pytz
+google
+google.generativeai

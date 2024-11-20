@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmailWhiz</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg mt-10">
+        <h2 class="text-2xl font-bold mb-6 text-center">Suggested Contacts for Amazon</h2>
+
+        <!-- Suggestions Table -->
+        <table class="min-w-full bg-white border border-gray-200 rounded-lg">
+            <thead>
+                <tr>
+                    <th class="py-2 px-4 border-b text-left font-semibold text-gray-700">First Name</th>
+                    <th class="py-2 px-4 border-b text-left font-semibold text-gray-700">Last Name</th>
+                    <th class="py-2 px-4 border-b text-left font-semibold text-gray-700">Organization Email ID</th>
+                    <th class="py-2 px-4 border-b text-left font-semibold text-gray-700">Organization</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for suggestion in suggestions %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="py-2 px-4 border-b">{{ suggestion.first_name }}</td>
+                        <td class="py-2 px-4 border-b">{{ suggestion.last_name }}</td>
+                        <td class="py-2 px-4 border-b">{{ suggestion.organization_email_id }}</td>
+                        <td class="py-2 px-4 border-b">{{ suggestion.organization }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="4" class="py-4 px-4 text-center text-gray-500">No suggestions available</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Populate Button -->
+        <div class="flex justify-center space-x-4 mt-3">
+            <a href="{% url 'email_generator' %}" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                Populate to the Entry Page
+            </a>
+            <a href="{% url 'email_generator' %}" class="bg-gray-800 text-white py-2 px-4 rounded hover:bg-gray-700">
+                Back to Entry
+            </a>
+        </div>
+    </div>
+</body>
+</html>

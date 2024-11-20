@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+    <h2 class="text-2xl font-semibold mb-4">Preview Email</h2>
+    <p><strong>Resume:</strong> {{ resume }}</p>
+    <p><strong>Template:</strong> {{ template }}</p>
+    
+    <div class="mt-4 overflow-x-auto">
+        <table class="min-w-full bg-white border border-gray-300 rounded-lg">
+            <thead>
+                <tr class="bg-gray-200 text-left">
+                    {% for header in excel_data.0 %}
+                        <th class="py-2 px-4 border-b">{{ header }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in excel_data.1 %}
+                    <tr class="hover:bg-gray-100">
+                        {% for cell in row %}
+                            <td class="py-2 px-4 border-b">{{ cell }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <form method="post" class="mt-4">
+        {% csrf_token %}
+        <button type="submit" class="w-full bg-green-500 hover:bg-green-700 text-white py-2 px-4 rounded">Send Email</button>
+    </form>
+</div>
+{% endblock %}
