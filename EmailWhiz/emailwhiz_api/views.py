@@ -522,14 +522,14 @@ def update_apollo_apis(request, api_name):
         with open(json_path, 'w') as file:
             json.dump(api_details, file, indent=4)
 
-        return JsonResponse({'status': 'success', 'message': f'{api_name} updated successfully'})
-
-    context = {
+        context = {
         'api1_value': api_details.get('api1', {}).get('curl_request', ''),
         'api2_value': api_details.get('api2', {}).get('curl_request', ''),
         'api3_value': api_details.get('api3', {}).get('curl_request', ''),
-    }
-    return render(request, 'update_apollo_apis.html', context)
+        }
+        return render(request, 'update_apollo_apis.html', context)
+
+    return JsonResponse({'status': 'error', 'message': f'Unable to Update'})
 
 
 def parse_curl_command(curl_command):

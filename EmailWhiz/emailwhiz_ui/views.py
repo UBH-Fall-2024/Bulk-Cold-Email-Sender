@@ -261,3 +261,7 @@ def update_apollo_apis(request):
         'api3_value': api_details.get('api3', {}).get('curl_request', ''),
     }
     return render(request, 'update_apollo_apis.html', context)
+
+
+def create_companies_data(request):
+    return render(request, 'create_companies_data.html')
