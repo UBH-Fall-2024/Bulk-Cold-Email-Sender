@@ -412,7 +412,7 @@ def send_emails(request):
             company_name = employer['company']
             message = employer['email_content']
             resume_path = employer['resume_path']
-            subject = f"[{name}]: Exploring {designation} Roles at {company_name}"
+            subject = f"[{details['first_name']}]: Exploring {designation} Roles at {company_name}"
         
             send_email(details['gmail_id'], details['gmail_in_app_password'], receiver_email, subject, message, resume_path)
             update_email_history(details['username'], receiver_email, subject, message, company_name, designation)
