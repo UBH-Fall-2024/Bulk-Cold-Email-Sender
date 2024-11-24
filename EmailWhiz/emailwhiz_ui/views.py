@@ -239,3 +239,25 @@ def email_history(request):
     context = {'history_by_company': history_by_company, 'resumes': resumes, 'username': username}
     print("history: ", history_data, history_file)
     return render(request, 'email_history.html', context)
+
+
+def update_apollo_apis(request):
+    # Load or initialize JSON data
+    details = get_user_details(request.user)
+    username = details['username']
+    user_dir = os.path.join(settings.MEDIA_ROOT, username)
+    os.makedirs(user_dir, exist_ok=True)
+    json_path = os.path.join(user_dir, 'apollo_apis_details.json')
+
+    # Load or initialize JSON data
+    api_details = {}
+    if os.path.exists(json_path):
+        with open(json_path, 'r') as file:
+            api_details = json.load(file)
+    
+    context = {
+        'api1_value': api_details.get('api1', {}).get('curl_request', ''),
+        'api2_value': api_details.get('api2', {}).get('curl_request', ''),
+        'api3_value': api_details.get('api3', {}).get('curl_request', ''),
+    }
+    return render(request, 'update_apollo_apis.html', context)

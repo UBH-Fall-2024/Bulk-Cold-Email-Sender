@@ -18,5 +18,6 @@ urlpatterns = [
     path('preview-template/', views.preview_template, name='preview_template'),
     path('email_history/', views.email_history, name='email_history'),
     path('add_employer_details/', views.add_employer_details, name='add_employer_details'),
+    path('update-apollo-apis/', views.update_apollo_apis, name='update_apollo_apis')
 ]
 

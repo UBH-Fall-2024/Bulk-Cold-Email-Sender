@@ -9,7 +9,8 @@ from django.shortcuts import render, redirect
 from emailwhiz_api.email_sender import send_email
 from .forms import ResumeSelectionForm, TemplateSelectionForm
 import os
-
+import requests
+import shlex
 import pytz
 
 from datetime import datetime
@@ -494,3 +495,103 @@ def send_followup(request):
         update_email_history(username, receiver_email, subject, content)
         return redirect('email_history')
         
+
+
+def update_apollo_apis(request, api_name):
+
+    details = get_user_details(request.user)
+    username = details['username']
+    user_dir = os.path.join(settings.MEDIA_ROOT, username)
+    os.makedirs(user_dir, exist_ok=True)
+    json_path = os.path.join(user_dir, 'apollo_apis_details.json')
+
+    # Load or initialize JSON data
+    api_details = {}
+    if os.path.exists(json_path):
+        with open(json_path, 'r') as file:
+            api_details = json.load(file)
+
+    if request.method == 'POST':
+        curl_request = request.POST.get('curl_request')
+        if not curl_request:
+            return JsonResponse({'status': 'error', 'message': 'No curl request provided'}, status=400)
+
+        api_details[api_name] = {'curl_request': curl_request}
+
+        # Save the updated JSON data
+        with open(json_path, 'w') as file:
+            json.dump(api_details, file, indent=4)
+
+        return JsonResponse({'status': 'success', 'message': f'{api_name} updated successfully'})
+
+    context = {
+        'api1_value': api_details.get('api1', {}).get('curl_request', ''),
+        'api2_value': api_details.get('api2', {}).get('curl_request', ''),
+        'api3_value': api_details.get('api3', {}).get('curl_request', ''),
+    }
+    return render(request, 'update_apollo_apis.html', context)
+
+
+def parse_curl_command(curl_command):
+    """
+    Parse a curl command and return the equivalent Python request components.
+    Supports extracting the URL, headers, and data.
+    """
+    tokens = shlex.split(curl_command)
+    url = None
+    headers = {}
+    data = None
+
+    # Iterate through tokens to extract information
+    for i, token in enumerate(tokens):
+        if token == "curl":
+            continue
+        elif token.startswith("http"):
+            url = token
+        elif token == "-H":
+            header = tokens[i + 1].split(": ", 1)
+            if len(header) == 2:
+                headers[header[0]] = header[1]
+        elif token in ("--data-raw", "-d"):
+            data = tokens[i + 1]
+
+    return url, headers, data
+
+def hit_apollo_api(request, api_name):
+    details = get_user_details(request.user)
+    username = details['username']
+    user_dir = os.path.join(settings.MEDIA_ROOT, username)
+    os.makedirs(user_dir, exist_ok=True)
+    json_path = os.path.join(user_dir, 'apollo_apis_details.json')
+
+    if not os.path.exists(json_path):
+        return JsonResponse({'error': f"No details found for {api_name}"}, status=404)
+
+    with open(json_path, 'r') as file:
+        api_details = json.load(file)
+
+    curl_request = api_details.get(api_name, {}).get('curl_request')
+    if not curl_request:
+        return JsonResponse({'error': f"No CURL request found for {api_name}"}, status=404)
+
+    print("Hello")
+    try:
+        # Parse the curl command
+        url, headers, data = parse_curl_command(curl_request)
+        # print("Data: ", data)
+        if not url:
+            return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
+
+        # Perform the HTTP request
+        if data:
+            print("Headers: ", headers)
+            response = requests.post(url, headers=headers, data=data)
+            # print("R1: ", response, response.__dict__)
+        else:
+            response = requests.get(url, headers=headers)
+
+        # Return the response in JSON format
+        return JsonResponse(response.json(), safe=False)
+
+    except Exception as e:
+        return JsonResponse({'error': response.__dict__['_content'].decode("utf-8")}, status=500)
