@@ -94,7 +94,13 @@
     .then(data => {
       console.log("Data: ", data);
       totalCount = data.pagination.total_entries;
-      totalPages = Math.ceil(totalCount / 25);
+      if (totalCount > 125) {
+        totalPages = 5;
+        }
+      else {
+        totalPages = Math.ceil(totalCount / 25);
+      }
+        
       // totalPages = 2
 
       document.getElementById('total-companies').textContent = totalCount;

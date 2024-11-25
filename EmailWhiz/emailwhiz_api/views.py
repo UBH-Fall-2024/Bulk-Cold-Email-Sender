@@ -28,6 +28,11 @@ import json
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
+from pymongo import MongoClient
+
+client = MongoClient('mongodb://localhost:27017/')  # Replace with your MongoDB connection URI
+db = client['EmailWhiz']  # Replace with your database name
+companies_collection = db['companies'] 
 
 CustomUser = get_user_model()
 
@@ -651,7 +656,7 @@ def get_companies_id(request):
     data = json.loads(request.body)
     locations = data.get('locations', [])
     keywords = data.get('keywords', [])
-    requested_page = data.get('pages', 1)
+    requested_page = data.get('page', 1)
     json_file_name = data.get('json_file_name', None)
     if json_file_name:
         json_file_name_dir = os.path.join(user_dir, json_file_name)
@@ -668,14 +673,14 @@ def get_companies_id(request):
         # Parse the curl command
         url, headers, data = parse_curl_command(curl_request)
         # data_json=json.loads(data)
-        # print("Data1: ", data, type(data), len(data))
+        print("Data1: ", data, type(data), len(data))
 
         data = replace_value_by_key(data, 'organization_locations', locations)
-        data = replace_value_by_key(data, 'q_organization_keyword_tags', keywords)
-        data = replace_value_by_key(data, 'page', f"{requested_page}")
+        data = replace_value_by_key(data, 'q_anded_organization_keyword_tags', keywords)
+        data = replace_value_by_key(data, 'page', int(requested_page))
         data = replace_value_by_key(data, 'per_page', 25)
         # print("modified_json_string", data)
-        # print("Data: ", data, type(data))
+        print("Data2: ", data, type(data))
         if not url:
             return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
 
@@ -684,7 +689,7 @@ def get_companies_id(request):
             # print("Headers: ", headers)
             all_companies = []
             response = requests.post(url, headers=headers, data=str(data))
-            # print("R1: ", response, response.__dict__)
+            print("R1: ", response, response.__dict__)
             response_data = response.json()
             # print("Response Data: ", response_data)
             accounts = response_data.get('accounts', [])
@@ -694,38 +699,66 @@ def get_companies_id(request):
                 all_companies.append({
                     'name': account.get('name'),
                     'id': account.get('id'),
-                    'logo_url': account.get('logo_url')
+                    'logo_url': account.get('logo_url'),
+                    'timestamp': datetime.now(),
+                    'keywords': keywords,
+                    'locations': locations
                 })
 
             for organization in organizations:
                 all_companies.append({
                     'name': organization.get('name'),
                     'id': organization.get('id'),
-                    'logo_url': organization.get('logo_url')
+                    'logo_url': organization.get('logo_url'),
+                    'timestamp': datetime.now(),
+                    'keywords': keywords,
+                    'locations': locations
                 })
 
             # Log progress
             # print("all_companies: ", all_companies)
             
             # If JSON file name is provided, save the data to the file
-            if json_file_name:
-                if os.path.exists(json_file_name_dir):
-                    # If the file exists, load its content
-                    with open(json_file_name_dir, 'r') as f:
-                        existing_data = json.load(f)
-                else:
-                    # If the file does not exist, initialize with an empty list
-                    existing_data = []
-                if not existing_data:
-                    existing_data = []
+            # if json_file_name:
+            #     if os.path.exists(json_file_name_dir):
+            #         # If the file exists, load its content
+            #         with open(json_file_name_dir, 'r') as f:
+            #             existing_data = json.load(f)
+            #     else:
+            #         # If the file does not exist, initialize with an empty list
+            #         existing_data = []
+            #     if not existing_data:
+            #         existing_data = []
                 
-                # print(f"Existing Data: {requested_page}", existing_data, len)
-                # Append new companies to existing data
-                existing_data.extend(all_companies)
+            #     # print(f"Existing Data: {requested_page}", existing_data, len)
+            #     # Append new companies to existing data
+            #     existing_data.extend(all_companies)
         
                 
-                with open(json_file_name_dir, 'w') as output_file:
-                    json.dump(existing_data, output_file, indent=4)
+            #     with open(json_file_name_dir, 'w') as output_file:
+            #         json.dump(existing_data, output_file, indent=4)
+            flag = 0
+            if json_file_name:
+                if all_companies:
+                    for company in all_companies:
+                        # Check if the company already exists in the collection to avoid duplicates
+                        result = companies_collection.update_one(
+                            {'id': company['id']},  # Match document with the same ID
+                            {
+                                '$set': {
+                                    'name': company['name'],
+                                    'logo_url': company['logo_url'],
+                                    'timestamp': datetime.now()
+                                },
+                                '$addToSet': {
+                                    'keywords': {'$each': keywords},
+                                    'locations': {'$each': locations}
+                                }
+                            },
+                            upsert=True  # Create a new document if none exists
+                        )
+                        
+                        # print(f"Modified: {result.modified_count}, Upserted: {result.upserted_id}, id: {company['id']}")
             
         else:
             response = requests.get(url, headers=headers)
