@@ -12,17 +12,17 @@
         <!-- Left Side: Inputs -->
         <div>
             <h2 class="text-2xl font-bold mb-4">API 1 Data Collection</h2>
-  
+
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Organization Locations</label>
                 <textarea id="locations" class="w-full p-2 border rounded" placeholder="Enter locations, one per line"></textarea>
             </div>
-  
+
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Keywords</label>
                 <textarea id="keywords" class="w-full p-2 border rounded" placeholder="Enter keywords, one per line"></textarea>
             </div>
-  
+
             <button
                 onclick="getTotalCount()"
                 class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
@@ -30,7 +30,7 @@
             >
                 Get Total Count
             </button>
-  
+
             <div id="json-file-section" class="hidden mt-4">
                 <label class="block text-sm font-medium mb-1">Output JSON File Name</label>
                 <input type="text" id="output-file" class="w-full p-2 border rounded" placeholder="example.json" />
@@ -43,7 +43,7 @@
                 </button>
             </div>
         </div>
-  
+
         <!-- Right Side: Display API Response and Progress -->
         <div>
             <h2 class="text-2xl font-bold mb-4">API Progress</h2>
@@ -60,25 +60,26 @@
         </div>
     </div>
   </div>
-  
+
   <script>
   let totalCount = 0; // Stores the total number of companies
   let companiesFetched = 0; // Stores the number of companies fetched so far
-  
+  let totalPages = 0; // Stores the total number of pages
+
   function getTotalCount() {
     const locations = document.getElementById('locations').value.split('\n').filter(x => x.trim());
     const keywords = document.getElementById('keywords').value.split('\n').filter(x => x.trim());
-  
+
     if (!locations.length || !keywords.length) {
       alert('Please fill in both the locations and keywords!');
       return;
     }
-  
+
     // Show loading state and hide the button
     document.getElementById('get-total-count-btn').disabled = true;
     document.getElementById('get-total-count-btn').textContent = 'Fetching Total Count...';
-  
-    fetch('/get-total-count/', {
+
+    fetch('/api/get-companies-id/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -91,7 +92,11 @@
     })
     .then(response => response.json())
     .then(data => {
-      totalCount = data.total_count;
+      console.log("Data: ", data);
+      totalCount = data.pagination.total_entries;
+      totalPages = Math.ceil(totalCount / 25);
+      // totalPages = 2
+
       document.getElementById('total-companies').textContent = totalCount;
       document.getElementById('progress-section').classList.remove('hidden');
       document.getElementById('json-file-section').classList.remove('hidden');
@@ -104,46 +109,52 @@
       document.getElementById('get-total-count-btn').textContent = 'Get Total Count';
     });
   }
-  
-  function startDataCollection() {
+
+  async function startDataCollection() {
     const outputFile = document.getElementById('output-file').value.trim();
     if (!outputFile) {
       alert('Please enter an output JSON file name!');
       return;
     }
-  
-    // Disable button and show progress
+
     document.getElementById('start-data-collection-btn').disabled = true;
     document.getElementById('start-data-collection-btn').textContent = 'Collecting Data...';
-  
-    fetch('/api1-data-collection/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': '{{ csrf_token }}',
-      },
-      body: JSON.stringify({
-        locations: document.getElementById('locations').value.split('\n').filter(x => x.trim()),
-        keywords: document.getElementById('keywords').value.split('\n').filter(x => x.trim()),
-        output_file: outputFile,
-      }),
-    })
-    .then(response => response.json())
-    .then(data => {
-      document.getElementById('api-response').textContent = JSON.stringify(data, null, 2);
-      document.getElementById('companies-fetched').textContent = totalCount;
-      document.getElementById('progress-bar').style.width = '100%';
-      document.getElementById('start-data-collection-btn').disabled = false;
-      document.getElementById('start-data-collection-btn').textContent = 'Start Data Collection';
-    })
-    .catch(error => {
-      console.error('Error:', error);
-      alert('Failed to collect data!');
-      document.getElementById('start-data-collection-btn').disabled = false;
-      document.getElementById('start-data-collection-btn').textContent = 'Start Data Collection';
-    });
+
+    companiesFetched = 0;
+    document.getElementById('companies-fetched').textContent = companiesFetched;
+
+    for (let page = 1; page <= totalPages; page++) {
+      try {
+        const response = await fetch('/api/get-companies-id/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+          },
+          body: JSON.stringify({
+            locations: document.getElementById('locations').value.split('\n').filter(x => x.trim()),
+            keywords: document.getElementById('keywords').value.split('\n').filter(x => x.trim()),
+            page: page,
+            json_file_name: outputFile
+          }),
+        });
+
+        const data = await response.json();
+        companiesFetched += data.organizations.length;
+        document.getElementById('companies-fetched').textContent = companiesFetched;
+        document.getElementById('progress-bar').style.width = `${(companiesFetched / totalCount) * 100}%`;
+
+        console.log(`Page ${page} data:`, data);
+      } catch (error) {
+        console.error(`Error fetching page ${page}:`, error);
+        alert(`Failed to fetch data for page ${page}`);
+      }
+    }
+
+    document.getElementById('start-data-collection-btn').disabled = false;
+    document.getElementById('start-data-collection-btn').textContent = 'Start Data Collection';
   }
   </script>
-  
+
 </body>
 </html>

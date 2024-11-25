@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Companies</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white shadow-md rounded-lg p-6 w-full max-w-3xl">
+        <h1 class="text-xl font-bold mb-4 text-gray-700">Select Companies</h1>
+        <form method="POST" action="{% url 'fetch_employees_page' %}">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {% for company in companies %}
+                <div class="flex items-center bg-gray-50 shadow-sm rounded-md p-3">
+                    <img src="{{ company.logo_url }}" alt="Logo" class="w-10 h-10 mr-3 rounded-md">
+                    <label class="text-gray-600">
+                        <input type="checkbox" name="selected_companies" value="{{ company.name }}" class="mr-2">
+                        {{ company.name }}
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="flex justify-between items-center mt-6">
+                <button type="button" onclick="window.history.back();" class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600">
+                    Back
+                </button>
+                <button type="submit" class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600">
+                    Fetch Employee Data
+                </button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

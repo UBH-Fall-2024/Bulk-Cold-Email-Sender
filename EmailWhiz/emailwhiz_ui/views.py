@@ -9,7 +9,7 @@ import os
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.contrib.auth.models import User
 
 from emailwhiz_api.views import get_user_details
@@ -265,3 +265,50 @@ def update_apollo_apis(request):
 
 def create_companies_data(request):
     return render(request, 'create_companies_data.html')
+
+
+def get_companies_datasets(request):
+    details = get_user_details(request.user)
+    username = details['username']
+    user_dir = os.path.join(settings.MEDIA_ROOT, username)
+    datasets = [
+        f for f in os.listdir(user_dir) if f.endswith('.json')
+    ]
+    print("Datasets: ", datasets)
+    return render(request, 'select_companies_dataset.html', { 'datasets': datasets})
+
+def select_companies(request):
+    dataset = request.GET.get('dataset')
+    if not dataset:
+        return JsonResponse({'error': 'Dataset not selected'}, status=400)
+
+    details = get_user_details(request.user)
+    username = details['username']
+    user_dir = os.path.join(settings.MEDIA_ROOT, username, dataset)
+
+    with open(user_dir, 'r') as f:
+        companies = json.load(f)
+    return render(request, 'select_companies.html', {'companies': companies})
+
+def select_companies(request):
+    dataset = request.GET.get('dataset')
+    if not dataset:
+        return JsonResponse({'error': 'Dataset not selected'}, status=400)
+
+    details = get_user_details(request.user)
+    username = details['username']
+    user_dir = os.path.join(settings.MEDIA_ROOT, username, dataset)
+
+    with open(user_dir, 'r') as f:
+        companies = json.load(f)
+    return render(request, 'select_companies.html', {'companies': companies})
+
+def fetch_employees_page(request):
+    # data = json.loads(request.body)
+    # print("request.GET", request.__dict__)
+    if request.method == "POST":
+        selected_companies = request.POST.getlist('selected_companies')  # Get list of selected companies
+        print(selected_companies)  # Debugging: Check the list 
+    
+        return render(request, 'fetch_employees.html', {'selected_companies': selected_companies})
+    return JsonResponse({'error': 'Invalid request method'}, status=405)

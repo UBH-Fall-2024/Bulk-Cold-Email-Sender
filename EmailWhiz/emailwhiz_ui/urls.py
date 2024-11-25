@@ -20,5 +20,9 @@ urlpatterns = [
     path('add_employer_details/', views.add_employer_details, name='add_employer_details'),
     path('update-apollo-apis/', views.update_apollo_apis, name='update_apollo_apis'),
     path('create-companies-data/', views.create_companies_data, name='create_companies_data'),
+    path('scrape-employees-data/select-companies-dataset', views.get_companies_datasets, name='get_companies_datasets'),
+    path('scrape-employees-data/select-companies', views.select_companies, name='select_companies'),
+    
+    path('scrape-employees-data/fetch-employees', views.fetch_employees_page, name='fetch_employees_page')
 ]
 

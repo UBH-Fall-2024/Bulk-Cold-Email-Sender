@@ -595,3 +595,190 @@ def hit_apollo_api(request, api_name):
 
     except Exception as e:
         return JsonResponse({'error': response.__dict__['_content'].decode("utf-8")}, status=500)
+    
+
+
+def replace_value_by_key(json_string, key, new_value):
+  """Replaces the value of a specific key in a JSON-like string.
+
+  Args:
+    json_string: The JSON-like string.
+    key: The key to replace.
+    new_value: The new value to replace with.
+
+  Returns:
+    The modified JSON-like string.
+  """
+
+  # Find the start index of the key-value pair
+  start_index = json_string.index(f'"{key}":')
+
+  # Determine the end index based on the value type
+  if isinstance(new_value, str):
+    end_index = json_string.find('"', start_index + len(f'"{key}":') + 1)
+    new_value_str = f'"{new_value}"'
+  elif isinstance(new_value, list):
+    new_value_str = ''
+    for i in range(len(new_value)):
+        new_value_str += '"' + new_value[i] + '"'
+        if i != len(new_value) - 1:
+            new_value_str += ','
+    new_value_str = f'[{new_value_str}]' 
+    end_index = json_string.find(']', start_index + len(f'"{key}":') + 1)
+  elif isinstance(new_value, int):
+    end_index = json_string.find(',', start_index + len(f'"{key}":') + 1) -1 
+    new_value_str = str(new_value)
+  else:
+    raise ValueError("Unsupported value type")
+
+  # Replace the old value with the new one
+  return json_string[:start_index + len(f'"{key}":')] + new_value_str + json_string[end_index+1:]
+
+def get_companies_id(request):
+    details = get_user_details(request.user)
+    username = details['username']
+    user_dir = os.path.join(settings.MEDIA_ROOT, username)
+    os.makedirs(user_dir, exist_ok=True)
+    json_path = os.path.join(user_dir, 'apollo_apis_details.json')
+
+    if not os.path.exists(json_path):
+        return JsonResponse({'error': f"No details found for Companies API"}, status=404)
+
+    with open(json_path, 'r') as file:
+        api_details = json.load(file)
+
+    curl_request = api_details.get('api1', {}).get('curl_request')
+    data = json.loads(request.body)
+    locations = data.get('locations', [])
+    keywords = data.get('keywords', [])
+    requested_page = data.get('pages', 1)
+    json_file_name = data.get('json_file_name', None)
+    if json_file_name:
+        json_file_name_dir = os.path.join(user_dir, json_file_name)
+        # if not os.path.exists(json_file_name_dir):
+        #     os.makedirs(json_file_name_dir)
+    
+    # print("locations: ", locations, type(locations))
+    # print("keywords: ", keywords, type(keywords))
+
+    if not curl_request:
+        return JsonResponse({'error': f"No CURL request found for Companies API"}, status=404)
+
+    try:
+        # Parse the curl command
+        url, headers, data = parse_curl_command(curl_request)
+        # data_json=json.loads(data)
+        # print("Data1: ", data, type(data), len(data))
+
+        data = replace_value_by_key(data, 'organization_locations', locations)
+        data = replace_value_by_key(data, 'q_organization_keyword_tags', keywords)
+        data = replace_value_by_key(data, 'page', f"{requested_page}")
+        data = replace_value_by_key(data, 'per_page', 25)
+        # print("modified_json_string", data)
+        # print("Data: ", data, type(data))
+        if not url:
+            return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
+
+        # Perform the HTTP request
+        if data:
+            # print("Headers: ", headers)
+            all_companies = []
+            response = requests.post(url, headers=headers, data=str(data))
+            # print("R1: ", response, response.__dict__)
+            response_data = response.json()
+            # print("Response Data: ", response_data)
+            accounts = response_data.get('accounts', [])
+            organizations = response_data.get('organizations', [])
+
+            for account in accounts:
+                all_companies.append({
+                    'name': account.get('name'),
+                    'id': account.get('id'),
+                    'logo_url': account.get('logo_url')
+                })
+
+            for organization in organizations:
+                all_companies.append({
+                    'name': organization.get('name'),
+                    'id': organization.get('id'),
+                    'logo_url': organization.get('logo_url')
+                })
+
+            # Log progress
+            # print("all_companies: ", all_companies)
+            
+            # If JSON file name is provided, save the data to the file
+            if json_file_name:
+                if os.path.exists(json_file_name_dir):
+                    # If the file exists, load its content
+                    with open(json_file_name_dir, 'r') as f:
+                        existing_data = json.load(f)
+                else:
+                    # If the file does not exist, initialize with an empty list
+                    existing_data = []
+                if not existing_data:
+                    existing_data = []
+                
+                # print(f"Existing Data: {requested_page}", existing_data, len)
+                # Append new companies to existing data
+                existing_data.extend(all_companies)
+        
+                
+                with open(json_file_name_dir, 'w') as output_file:
+                    json.dump(existing_data, output_file, indent=4)
+            
+        else:
+            response = requests.get(url, headers=headers)
+
+        # Return the response in JSON format
+        return JsonResponse(response.json(), safe=False)
+
+    except Exception as e:
+        return JsonResponse({'error': response.__dict__['_content'].decode("utf-8")}, status=500)
+    
+
+
+
+# def select_companies(request):
+#     dataset = request.GET.get('dataset')
+#     if not dataset:
+#         return JsonResponse({'error': 'Dataset not selected'}, status=400)
+
+#     details = get_user_details(request.user)
+#     username = details['username']
+#     user_dir = os.path.join(settings.MEDIA_ROOT, username, dataset)
+
+#     with open(user_dir, 'r') as f:
+#         companies = json.load(f)
+
+#     return render(request, 'select_companies.html', {'companies': companies})
+
+def fetch_employees_api(request):
+    data = json.loads(request.body)
+    company_name = data.get('company')
+    employee_role = 'recruiter'  # Default role
+    details = get_user_details(request.user)
+    username = details['username']
+
+    # Load API details
+    api_details_path = os.path.join(settings.MEDIA_ROOT, username, 'apollo_apis_details.json')
+    with open(api_details_path, 'r') as f:
+        api_details = json.load(f)
+    curl_request = api_details.get('api2', {}).get('curl_request')
+
+    # Replace placeholders in the API call
+    url, headers, payload = parse_curl_command(curl_request)
+    payload = replace_value_by_key(payload, 'company_name', company_name)
+    payload = replace_value_by_key(payload, 'employee_role', employee_role)
+    print("payload: ", payload)
+    response = requests.post(url, headers=headers, data=str(payload))
+
+    # Save response data
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    company_dir = os.path.join(settings.MEDIA_ROOT, username, 'employee_details', company_name)
+    os.makedirs(company_dir, exist_ok=True)
+    json_path = os.path.join(company_dir, f'{timestamp}.json')
+    with open(json_path, 'w') as f:
+        json.dump(response.json(), f, indent=4)
+
+    return JsonResponse({'status': 'success'})

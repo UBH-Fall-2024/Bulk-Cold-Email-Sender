@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch Employee Data</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white shadow-md rounded-lg p-6 w-full max-w-3xl">
+        <h1 class="text-xl font-bold mb-4 text-gray-700">Fetching Employee Data</h1>
+
+        <!-- Progress List -->
+        <ul id="progress-list" class="mb-6">
+            <!-- Progress items will be dynamically added here -->
+        </ul>
+
+        <!-- Progress Bar -->
+        <progress id="progress-bar" value="0" max="{{ selected_companies|length }}" class="w-full mb-6"></progress>
+
+        <!-- Start Button to Begin Fetching -->
+        <button id="start-button" onclick="startFetchingData()" class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600">
+            Start Fetching Data
+        </button>
+
+        <!-- Back Button -->
+        <button type="button" onclick="window.history.back();" class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 mt-4">
+            Back
+        </button>
+    </div>
+
+    <!-- Add a safe JSON object using json_script -->
+    <div id="selected-companies-data">
+        {{ selected_companies|json_script:"selectedCompanies" }}
+    </div>
+
+    <script>
+        // Parse the selected companies data from the script tag
+        console.log(document.getElementById('selected-companies-data').textContent)
+        const selectedCompanies = JSON.parse(document.getElementById('selected-companies-data').textContent);
+        console.log(selectedCompanies);
+        console.log(selectedCompanies.length)
+        const progressBar = document.getElementById('progress-bar');
+        const progressList = document.getElementById('progress-list');
+        const startButton = document.getElementById('start-button');
+        let completedCount = 0;
+
+        // Function to start the fetching process when the button is clicked
+        async function startFetchingData() {
+            // Disable the button after clicking
+            startButton.disabled = true;
+            startButton.innerText = "Fetching...";
+
+            // Loop through each company and fetch the employee data
+            for (const company of selectedCompanies) {
+                try {
+                    // Simulate API call (replace with your actual API call)
+                    const response = await fetch('/api/fetch-employee-data', {
+                        method: 'POST',
+                        body: JSON.stringify({ company }),
+                        headers: { 'Content-Type': 'application/json' },
+                    });
+                    
+                    // Update the progress bar
+                    completedCount++;
+                    progressBar.value = completedCount;
+
+                    // Add the company to the progress list
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${company} - Data fetched successfully`;
+                    listItem.className = "text-green-500";
+                    progressList.appendChild(listItem);
+                } catch (error) {
+                    // If error, add a failure message in the list
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${company} - Failed to fetch data`;
+                    listItem.className = "text-red-500";
+                    progressList.appendChild(listItem);
+                }
+            }
+
+            // Re-enable the button after completion
+            startButton.disabled = false;
+            startButton.innerText = "Start Fetching Data";
+        }
+    </script>
+</body>
+</html>
