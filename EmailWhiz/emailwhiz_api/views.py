@@ -5,16 +5,16 @@ from django.http import HttpResponse
 from PyPDF2 import PdfReader
 from django.conf import settings
 from django.shortcuts import render, redirect
-
+import traceback
 from emailwhiz_api.email_sender import send_email
 from .forms import ResumeSelectionForm, TemplateSelectionForm
 import os
 import requests
 import shlex
 import pytz
-
+from itertools import combinations
 from datetime import datetime
-
+import math
 import google.generativeai as genai
 from django.shortcuts import render
 from django.http import JsonResponse
@@ -33,11 +33,13 @@ from pymongo import MongoClient
 client = MongoClient('mongodb://localhost:27017/')  # Replace with your MongoDB connection URI
 db = client['EmailWhiz']  # Replace with your database name
 companies_collection = db['companies'] 
+and_collection = db['and_company_keywords']
+combination_collection = db['combinations_company_keywords']
 
 CustomUser = get_user_model()
 
-from dotenv import load_dotenv
-load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 
 
 def get_template(details):
@@ -639,7 +641,7 @@ def replace_value_by_key(json_string, key, new_value):
   # Replace the old value with the new one
   return json_string[:start_index + len(f'"{key}":')] + new_value_str + json_string[end_index+1:]
 
-def get_companies_id(request):
+def get_companies_id(request, keywords, locations, requested_page, store_companies=False):
     details = get_user_details(request.user)
     username = details['username']
     user_dir = os.path.join(settings.MEDIA_ROOT, username)
@@ -654,17 +656,7 @@ def get_companies_id(request):
 
     curl_request = api_details.get('api1', {}).get('curl_request')
     data = json.loads(request.body)
-    locations = data.get('locations', [])
-    keywords = data.get('keywords', [])
-    requested_page = data.get('page', 1)
-    json_file_name = data.get('json_file_name', None)
-    if json_file_name:
-        json_file_name_dir = os.path.join(user_dir, json_file_name)
-        # if not os.path.exists(json_file_name_dir):
-        #     os.makedirs(json_file_name_dir)
     
-    # print("locations: ", locations, type(locations))
-    # print("keywords: ", keywords, type(keywords))
 
     if not curl_request:
         return JsonResponse({'error': f"No CURL request found for Companies API"}, status=404)
@@ -673,14 +665,14 @@ def get_companies_id(request):
         # Parse the curl command
         url, headers, data = parse_curl_command(curl_request)
         # data_json=json.loads(data)
-        print("Data1: ", data, type(data), len(data))
+        # print("Data1: ", data, type(data), len(data))
 
         data = replace_value_by_key(data, 'organization_locations', locations)
         data = replace_value_by_key(data, 'q_anded_organization_keyword_tags', keywords)
         data = replace_value_by_key(data, 'page', int(requested_page))
         data = replace_value_by_key(data, 'per_page', 25)
         # print("modified_json_string", data)
-        print("Data2: ", data, type(data))
+        # print("Data2: ", data, type(data))
         if not url:
             return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
 
@@ -689,7 +681,7 @@ def get_companies_id(request):
             # print("Headers: ", headers)
             all_companies = []
             response = requests.post(url, headers=headers, data=str(data))
-            print("R1: ", response, response.__dict__)
+            # print("R1: ", response, response.__dict__)
             response_data = response.json()
             # print("Response Data: ", response_data)
             accounts = response_data.get('accounts', [])
@@ -715,30 +707,8 @@ def get_companies_id(request):
                     'locations': locations
                 })
 
-            # Log progress
-            # print("all_companies: ", all_companies)
-            
-            # If JSON file name is provided, save the data to the file
-            # if json_file_name:
-            #     if os.path.exists(json_file_name_dir):
-            #         # If the file exists, load its content
-            #         with open(json_file_name_dir, 'r') as f:
-            #             existing_data = json.load(f)
-            #     else:
-            #         # If the file does not exist, initialize with an empty list
-            #         existing_data = []
-            #     if not existing_data:
-            #         existing_data = []
-                
-            #     # print(f"Existing Data: {requested_page}", existing_data, len)
-            #     # Append new companies to existing data
-            #     existing_data.extend(all_companies)
-        
-                
-            #     with open(json_file_name_dir, 'w') as output_file:
-            #         json.dump(existing_data, output_file, indent=4)
-            flag = 0
-            if json_file_name:
+            companies_addition_count = 0
+            if store_companies:
                 if all_companies:
                     for company in all_companies:
                         # Check if the company already exists in the collection to avoid duplicates
@@ -757,19 +727,66 @@ def get_companies_id(request):
                             },
                             upsert=True  # Create a new document if none exists
                         )
-                        
+                        if result.modified_count == 0:
+                            companies_addition_count += 1
                         # print(f"Modified: {result.modified_count}, Upserted: {result.upserted_id}, id: {company['id']}")
-            
-        else:
-            response = requests.get(url, headers=headers)
+        
 
         # Return the response in JSON format
-        return JsonResponse(response.json(), safe=False)
+        resp = response.json()
+        resp['companies_addition_count'] = companies_addition_count
+        # print("Resp: ", resp)
+
+        return resp
 
     except Exception as e:
         return JsonResponse({'error': response.__dict__['_content'].decode("utf-8")}, status=500)
     
 
+def scrape_companies(request):
+    
+    try:
+        data = json.loads(request.body)
+        # new_keyword = data.get('keyword', '').strip()
+
+        # if not new_keyword:
+        #     return JsonResponse({'success': False, 'message': 'Invalid keyword'})
+        locations = data.get("locations", [])
+
+        if not locations:
+            return JsonResponse({"error": "Locations are required"})
+        # print("Hello.....")
+        # Fetch an unprocessed combination
+        combination = combination_collection.find_one({"is_processed": False})
+
+        if not combination:
+            return JsonResponse({"error": "No unprocessed combinations available"}, status=404)
+
+        keywords = combination.get("keywords", [])
+        # print("Keywords: ", keywords)
+        response = get_companies_id(request, keywords, locations, 1)
+        print("R1_response: ", response)
+        total_entries = response['pagination']['total_entries']
+        if total_entries > 125:
+            total_pages = 5
+        else:
+            total_pages = math.ceil(total_entries/25)
+        
+        resp = {'companies_addition_count': 0}
+        for i in range(1, total_pages+1):
+            response = get_companies_id(request, keywords, locations, i, True)
+            resp['companies_addition_count'] += response['companies_addition_count']
+        # Mark the combination as processed
+        combination_collection.update_one(
+            {"_id": combination["_id"]},
+            {"$set": {"is_processed": True}}
+        )
+
+        return JsonResponse({"success": resp, "keywords": keywords})
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+    
 
 
 # def select_companies(request):
@@ -815,3 +832,56 @@ def fetch_employees_api(request):
         json.dump(response.json(), f, indent=4)
 
     return JsonResponse({'status': 'success'})
+
+
+
+
+def add_keyword(request):
+    if request.method == 'POST':
+        try:
+            # Parse the new keyword
+            data = json.loads(request.body)
+            new_keyword = data.get('keyword', '').strip()
+
+            if not new_keyword:
+                return JsonResponse({'success': False, 'message': 'Invalid keyword'})
+
+            # Fetch the current keywords from `and_company_keywords`
+            document = and_collection.find_one({})
+            existing_keywords = document.get('keywords', []) if document else []
+
+            # Add the new keyword to the list if it doesn't exist
+            if new_keyword in existing_keywords:
+                return JsonResponse({'success': False, 'message': 'Keyword already exists'})
+
+            existing_keywords.append(new_keyword)
+            and_collection.update_one({}, {'$set': {'keywords': existing_keywords}}, upsert=True)
+
+            # Generate all combinations of the updated keywords
+            all_combinations = []
+            for r in range(1, len(existing_keywords) + 1):
+                all_combinations.extend(combinations(existing_keywords, r))
+
+            # Update the `combinations_company_keywords` collection
+            combination_collection.delete_many({})  # Clear existing combinations
+            new_combinations = [
+                {'keywords': list(comb), 'is_processed': False}
+                for comb in all_combinations
+            ]
+            combination_collection.insert_many(new_combinations)
+
+            return JsonResponse({'success': True, 'message': 'Keyword added and combinations updated'})
+        except Exception as e:
+            print(f"Error adding keyword: {e}")
+            return JsonResponse({'success': False, 'message': 'An error occurred'})
+
+
+def get_keyword_combinations_counts(request):
+    if request.method == 'GET':
+        collection = db['combinations_company_keywords']
+        total_processed = collection.count_documents({'is_processed': True})
+        total_unprocessed = collection.count_documents({'is_processed': False})
+        return JsonResponse({
+            'processed': total_processed,
+            'unprocessed': total_unprocessed
+        })

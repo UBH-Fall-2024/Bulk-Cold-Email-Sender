@@ -12,7 +12,13 @@ urlpatterns = [
     path('send_followup/', views.send_followup, name='send_followup'),
     path('update-apollo-apis/<str:api_name>/', views.update_apollo_apis, name='update_apollo_apis'),
     path('hit-apollo-api/<str:api_name>/', views.hit_apollo_api, name='hit_apollo_api'),
-    path('get-companies-id/', views.get_companies_id, name='get_companies_id'),
-    path('fetch-employee-data/', views.fetch_employees_api, name='fetch_employees_api')
+    # path('get-companies-id/', views.get_companies_id, name='get_companies_id'),
+    path('fetch-employee-data/', views.fetch_employees_api, name='fetch_employees_api'),
+    path('add-keyword/', views.add_keyword, name='add_keyword'),
+    path('keyword-counts/', views.get_keyword_combinations_counts, name='get_keyword_combinations_counts'),
+    path('get-companies/', views.scrape_companies, name='scrape_companies'),
+    # path('get-companies/', views.get_companies, name='get_companies'),
+    
+    
 ]
 
