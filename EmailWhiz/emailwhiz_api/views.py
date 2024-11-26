@@ -885,3 +885,65 @@ def get_keyword_combinations_counts(request):
             'processed': total_processed,
             'unprocessed': total_unprocessed
         })
+    
+def company_count(request):
+    total = companies_collection.count_documents({})
+    processed = companies_collection.count_documents({"is_processed": True})
+    return JsonResponse({"total": total, "processed": processed})
+
+def get_non_processed_companies(request):
+    companies = list(companies_collection.find({"is_processed": False}, {"_id": 0, "logo_url": 0}))
+    # print("Companies: ", companies)
+    return JsonResponse({'companies': companies}, safe=False)
+
+def fetch_employee_data_by_company(company_id):
+    try:
+        # result = f1(company_id)
+        # companies_collection.update_one({"id": company_id}, {"$set": {"is_processed": True}})
+        return {"success": True, "data": {'count': 55}}
+    except Exception as e:
+        return {"error": str(e)}
+
+def fetch_employees(request):
+    data = json.loads(request.body)
+    company_id = data.get("company_id")
+    auto = data.get("auto", False)
+
+    # Fetch a non-processed company if auto
+    response = {'total_employees_fetched': 0}
+    if auto:
+        
+        n = data.get("n", False)
+        for i in range(n+1):
+            company = companies_collection.find_one({"is_processed": False})
+            if not company:
+                return JsonResponse({"error": "No unprocessed companies available"}, status=404)
+            company_id = company["id"]
+            resp = fetch_employee_data_by_company(company_id)
+            if 'success' in resp:
+                response['total_employees_fetched'] += resp['data']['count']
+            else:
+                response['error'] = 'Partial Success'
+                break
+    else:
+        resp = fetch_employee_data_by_company(company_id)
+        if 'success' in resp:
+            response['total_employees_fetched'] += resp['data']['count']
+        else:
+            response['error'] = 'Could not fetch Employee Data'
+    
+    return JsonResponse({"data": response})
+
+
+def search_companies(request):
+    query = request.GET.get("query", "").strip()
+    if len(query) < 3:
+        return JsonResponse([], safe=False)  # Return empty list if query too short
+
+    # Fetch matching companies
+    matching_companies = companies_collection.find(
+        {"name": {"$regex": query, "$options": "i"}},
+        {"_id": 0, "id": 1, "name": 1, "logo_url": 1}
+    )
+
+    return JsonResponse(list(matching_companies), safe=False)

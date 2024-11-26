@@ -23,6 +23,6 @@ urlpatterns = [
     path('scrape-employees-data/select-companies-dataset', views.get_companies_datasets, name='get_companies_datasets'),
     path('scrape-employees-data/select-companies', views.select_companies, name='select_companies'),
     
-    path('scrape-employees-data/fetch-employees', views.fetch_employees_page, name='fetch_employees_page')
+    path('scrape-employees-data/fetch-employees', views.fetch_employees_data, name='fetch_employees_data')
 ]
 

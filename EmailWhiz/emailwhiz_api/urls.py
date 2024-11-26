@@ -17,8 +17,11 @@ urlpatterns = [
     path('add-keyword/', views.add_keyword, name='add_keyword'),
     path('keyword-counts/', views.get_keyword_combinations_counts, name='get_keyword_combinations_counts'),
     path('get-companies/', views.scrape_companies, name='scrape_companies'),
-    # path('get-companies/', views.get_companies, name='get_companies'),
-    
+    path('company-count/', views.company_count, name='company_count'),
+    path('get-non-processed-companies/', views.get_non_processed_companies, name='get_non_processed_companies'),
+    path('search-companies/', views.search_companies, name='search_companies'),
+    path('fetch-employees/', views.fetch_employees, name='fetch_employees'),
+
     
 ]
 

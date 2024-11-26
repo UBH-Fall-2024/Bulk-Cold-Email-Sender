@@ -303,12 +303,5 @@ def select_companies(request):
         companies = json.load(f)
     return render(request, 'select_companies.html', {'companies': companies})
 
-def fetch_employees_page(request):
-    # data = json.loads(request.body)
-    # print("request.GET", request.__dict__)
-    if request.method == "POST":
-        selected_companies = request.POST.getlist('selected_companies')  # Get list of selected companies
-        print(selected_companies)  # Debugging: Check the list 
-    
-        return render(request, 'fetch_employees.html', {'selected_companies': selected_companies})
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
+def fetch_employees_data(request):
+    return render(request, 'fetch_employees.html')
