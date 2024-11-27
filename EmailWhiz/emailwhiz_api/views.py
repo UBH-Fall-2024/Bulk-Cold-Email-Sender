@@ -35,7 +35,7 @@ db = client['EmailWhiz']  # Replace with your database name
 companies_collection = db['companies'] 
 and_collection = db['and_company_keywords']
 combination_collection = db['combinations_company_keywords']
-
+apollo_apis_curl_collection = db['apollo_apis_curl']
 CustomUser = get_user_model()
 
 # from dotenv import load_dotenv
@@ -508,35 +508,35 @@ def update_apollo_apis(request, api_name):
 
     details = get_user_details(request.user)
     username = details['username']
-    user_dir = os.path.join(settings.MEDIA_ROOT, username)
-    os.makedirs(user_dir, exist_ok=True)
-    json_path = os.path.join(user_dir, 'apollo_apis_details.json')
-
-    # Load or initialize JSON data
-    api_details = {}
-    if os.path.exists(json_path):
-        with open(json_path, 'r') as file:
-            api_details = json.load(file)
+    
+    # Ensure the collection has an entry for this user
+    user_entry = apollo_apis_curl_collection.find_one({'username': username})
+    if not user_entry:
+        apollo_apis_curl_collection.insert_one({'username': username, 'apis': {}})
 
     if request.method == 'POST':
         curl_request = request.POST.get('curl_request')
         if not curl_request:
             return JsonResponse({'status': 'error', 'message': 'No curl request provided'}, status=400)
 
-        api_details[api_name] = {'curl_request': curl_request}
+        # Update the API details for the specific user and API
+        apollo_apis_curl_collection.update_one(
+            {'username': username},
+            {'$set': {f'apis.{api_name}.curl_request': curl_request}}
+        )
 
-        # Save the updated JSON data
-        with open(json_path, 'w') as file:
-            json.dump(api_details, file, indent=4)
+    # Fetch updated API details
+    user_entry = apollo_apis_curl_collection.find_one({'username': username})
+    api_details = user_entry.get('apis', {})
 
-        context = {
+    context = {
         'api1_value': api_details.get('api1', {}).get('curl_request', ''),
         'api2_value': api_details.get('api2', {}).get('curl_request', ''),
         'api3_value': api_details.get('api3', {}).get('curl_request', ''),
-        }
-        return render(request, 'update_apollo_apis.html', context)
+    }
 
-    return JsonResponse({'status': 'error', 'message': f'Unable to Update'})
+    return render(request, 'update_apollo_apis.html', context)
+
 
 
 def parse_curl_command(curl_command):
@@ -567,21 +567,12 @@ def parse_curl_command(curl_command):
 def hit_apollo_api(request, api_name):
     details = get_user_details(request.user)
     username = details['username']
-    user_dir = os.path.join(settings.MEDIA_ROOT, username)
-    os.makedirs(user_dir, exist_ok=True)
-    json_path = os.path.join(user_dir, 'apollo_apis_details.json')
-
-    if not os.path.exists(json_path):
-        return JsonResponse({'error': f"No details found for {api_name}"}, status=404)
-
-    with open(json_path, 'r') as file:
-        api_details = json.load(file)
-
+    user_entry = apollo_apis_curl_collection.find_one({'username': username})
+    api_details = user_entry.get('apis', {})
     curl_request = api_details.get(api_name, {}).get('curl_request')
     if not curl_request:
         return JsonResponse({'error': f"No CURL request found for {api_name}"}, status=404)
 
-    print("Hello")
     try:
         # Parse the curl command
         url, headers, data = parse_curl_command(curl_request)
@@ -642,17 +633,12 @@ def replace_value_by_key(json_string, key, new_value):
   return json_string[:start_index + len(f'"{key}":')] + new_value_str + json_string[end_index+1:]
 
 def get_companies_id(request, keywords, locations, requested_page, store_companies=False):
+   
+
     details = get_user_details(request.user)
     username = details['username']
-    user_dir = os.path.join(settings.MEDIA_ROOT, username)
-    os.makedirs(user_dir, exist_ok=True)
-    json_path = os.path.join(user_dir, 'apollo_apis_details.json')
-
-    if not os.path.exists(json_path):
-        return JsonResponse({'error': f"No details found for Companies API"}, status=404)
-
-    with open(json_path, 'r') as file:
-        api_details = json.load(file)
+    user_entry = apollo_apis_curl_collection.find_one({'username': username})
+    api_details = user_entry.get('apis', {})
 
     curl_request = api_details.get('api1', {}).get('curl_request')
     data = json.loads(request.body)
@@ -723,6 +709,9 @@ def get_companies_id(request, keywords, locations, requested_page, store_compani
                                 '$addToSet': {
                                     'keywords': {'$each': keywords},
                                     'locations': {'$each': locations}
+                                },
+                                '$setOnInsert': {
+                                    'is_processed': False  # Set only if the document is newly created
                                 }
                             },
                             upsert=True  # Create a new document if none exists
