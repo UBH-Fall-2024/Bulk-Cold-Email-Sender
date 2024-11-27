@@ -21,7 +21,8 @@ urlpatterns = [
     path('get-non-processed-companies/', views.get_non_processed_companies, name='get_non_processed_companies'),
     path('search-companies/', views.search_companies, name='search_companies'),
     path('fetch-employees/', views.fetch_employees, name='fetch_employees'),
-
+    path('employees-count/', views.employees_count, name='employees_count'),
+    
     
 ]
 

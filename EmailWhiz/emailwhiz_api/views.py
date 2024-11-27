@@ -36,6 +36,13 @@ companies_collection = db['companies']
 and_collection = db['and_company_keywords']
 combination_collection = db['combinations_company_keywords']
 apollo_apis_curl_collection = db['apollo_apis_curl']
+apollo_emails_collection = db['apollo_emails']
+
+proxy = {
+    "http": "http://User-001:123456@192.168.56.1:808",
+    "https": "https://User-001:123456@192.168.56.1:808",
+}
+
 CustomUser = get_user_model()
 
 # from dotenv import load_dotenv
@@ -576,7 +583,7 @@ def hit_apollo_api(request, api_name):
     try:
         # Parse the curl command
         url, headers, data = parse_curl_command(curl_request)
-        # print("Data: ", data)
+        print("Data: ", data)
         if not url:
             return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
 
@@ -584,7 +591,7 @@ def hit_apollo_api(request, api_name):
         if data:
             # print("Headers: ", headers)
             response = requests.post(url, headers=headers, data=data)
-            # print("R1: ", response, response.__dict__)
+            print("R1: ", response, response.__dict__)
         else:
             response = requests.get(url, headers=headers)
 
@@ -592,7 +599,7 @@ def hit_apollo_api(request, api_name):
         return JsonResponse(response.json(), safe=False)
 
     except Exception as e:
-        return JsonResponse({'error': response.__dict__['_content'].decode("utf-8")}, status=500)
+        return JsonResponse({'error': e}, status=500)
     
 
 
@@ -641,7 +648,6 @@ def get_companies_id(request, keywords, locations, requested_page, store_compani
     api_details = user_entry.get('apis', {})
 
     curl_request = api_details.get('api1', {}).get('curl_request')
-    data = json.loads(request.body)
     
 
     if not curl_request:
@@ -652,7 +658,7 @@ def get_companies_id(request, keywords, locations, requested_page, store_compani
         url, headers, data = parse_curl_command(curl_request)
         # data_json=json.loads(data)
         # print("Data1: ", data, type(data), len(data))
-
+        
         data = replace_value_by_key(data, 'organization_locations', locations)
         data = replace_value_by_key(data, 'q_anded_organization_keyword_tags', keywords)
         data = replace_value_by_key(data, 'page', int(requested_page))
@@ -880,47 +886,165 @@ def company_count(request):
     processed = companies_collection.count_documents({"is_processed": True})
     return JsonResponse({"total": total, "processed": processed})
 
+def employees_count(request):
+    total = apollo_emails_collection.count_documents({})
+    return JsonResponse({"total": total})
+
+
 def get_non_processed_companies(request):
     companies = list(companies_collection.find({"is_processed": False}, {"_id": 0, "logo_url": 0}))
     # print("Companies: ", companies)
     return JsonResponse({'companies': companies}, safe=False)
 
-def fetch_employee_data_by_company(company_id):
+
+def fetch_employees_data_from_apollo(_data):
+
+    organization_id, person_titles, person_locations = _data['organization_id'],  _data['person_titles'],  _data['person_locations']
+    
+
+    curl_request = _data['curl_request']
+    # print("curl_request: ", curl_request)
+
+    if not curl_request:
+        return JsonResponse({'error': f"No CURL request found for Employees API"}, status=404)
+
     try:
-        # result = f1(company_id)
-        # companies_collection.update_one({"id": company_id}, {"$set": {"is_processed": True}})
-        return {"success": True, "data": {'count': 55}}
+        # Parse the curl command
+        url, headers, data = parse_curl_command(curl_request)
+        
+        if not url:
+            return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
+
+        current_page = 1
+        max_page = 1
+        pages_found = False
+        employees_addition_count = 0
+        
+        while current_page <= max_page:
+            # Update the data payload
+
+            # print(f"organization_id: {type(organization_id)} {organization_id} organization_id: {type(organization_id)} person_titles: {type(person_titles)} person_locations: {type(person_locations)} current_page: {type(current_page)}")
+            data = replace_value_by_key(data, 'organization_ids', organization_id)
+            data = replace_value_by_key(data, 'person_titles', person_titles)
+            data = replace_value_by_key(data, 'person_locations', person_locations)
+            data = replace_value_by_key(data, 'page', current_page)
+
+            
+            # print("Body: ", data)
+            # Perform the HTTP request
+            response = requests.post(url, headers=headers, data=str(data))
+            # print("R2: ", response.__dict__)
+            response_data = response.json()
+
+            people = response_data.get('people', [])
+            if pages_found == False:
+                total_entries = response_data['pagination']['total_entries']
+                if total_entries > 125:
+                    max_page = 3
+                else:
+                    max_page = math.ceil(total_entries/25)
+            if not people:
+                break
+
+            
+            for person in people:
+                employee_id = person.get('id')
+                first_name = person.get('first_name')
+                last_name = person.get('last_name')
+                titles = person.get('titles')
+                city = person.get('city')
+                country = person.get('country')
+
+                # Insert or update employee data in apollo_emails
+                result = apollo_emails_collection.update_one(
+                    {'id': employee_id},
+                    {
+                        '$set': {
+                            'first_name': first_name,
+                            'last_name': last_name,
+                            'city': city,
+                            'country': country,
+                            'timestamp': datetime.now(),
+                            'organization_id': organization_id[0]
+                        },
+                        '$addToSet': {
+                            'titles': titles
+                        },
+                        '$setOnInsert': {
+                            'email': ""  # Keep email empty
+                        }
+                    },
+                    upsert=True
+                )
+                if result.modified_count == 0:
+                    employees_addition_count += 1
+
+            current_page += 1
+
+
+        # Mark organization as processed
+        companies_collection.update_one(
+            {'id': organization_id[0]},
+            {'$set': {'is_processed': True}}
+        )
+
+        return {"success": True, "data": {'count': employees_addition_count}}
+
     except Exception as e:
-        return {"error": str(e)}
+        traceback.print_exc()
+        return {'error': str(e)}
+    
+
 
 def fetch_employees(request):
     data = json.loads(request.body)
-    company_id = data.get("company_id")
+    company_info = data.get("company_id", None)
+    # print("company_id: ", company_info)
+    locations = data.get('locations', None)
     auto = data.get("auto", False)
+    titles = data.get("job_titles", None)
+    # print("loctions, job_titles", locations, titles)
+    if titles is None or locations is None:
+        return JsonResponse({"error": 'Job Titles or Locations are Missing'})
+    details = get_user_details(request.user)
+    username = details['username']
+    user_entry = apollo_apis_curl_collection.find_one({'username': username})
+    api_details = user_entry.get('apis', {})
 
-    # Fetch a non-processed company if auto
+    curl_request = api_details.get('api2', {}).get('curl_request')
+
+    _data = {
+         'person_titles': titles, 
+         'person_locations': locations,
+         'curl_request': curl_request
+    }
+
     response = {'total_employees_fetched': 0}
     if auto:
         
-        n = data.get("n", False)
-        for i in range(n+1):
-            company = companies_collection.find_one({"is_processed": False})
-            if not company:
-                return JsonResponse({"error": "No unprocessed companies available"}, status=404)
-            company_id = company["id"]
-            resp = fetch_employee_data_by_company(company_id)
-            if 'success' in resp:
-                response['total_employees_fetched'] += resp['data']['count']
-            else:
-                response['error'] = 'Partial Success'
-                break
+        company = companies_collection.find_one({"is_processed": False})
+        if not company:
+            return JsonResponse({"error": "No unprocessed companies available"}, status=404)
+        company_id = company["id"]
+        # print("company_id2", company_id)
+
+        _data['organization_id'] = [company_id]
+        
+        
+        resp = fetch_employees_data_from_apollo(_data)
+        if 'success' in resp:
+            response['total_employees_fetched'] += resp['data']['count']
+        else:
+            response['error'] = 'Partial Success'
     else:
-        resp = fetch_employee_data_by_company(company_id)
+        _data['organization_id'] = [company_info['id']]
+        resp = fetch_employees_data_from_apollo(_data)
         if 'success' in resp:
             response['total_employees_fetched'] += resp['data']['count']
         else:
             response['error'] = 'Could not fetch Employee Data'
     
+
     return JsonResponse({"data": response})
 
 
