@@ -591,7 +591,7 @@ def hit_apollo_api(request, api_name):
 
         # Perform the HTTP request
         if data:
-            print("Headers: ", headers)
+            # print("Headers: ", headers)
             response = requests.post(url, headers=headers, data=data)
             # print("R1: ", response, response.__dict__)
         else:
