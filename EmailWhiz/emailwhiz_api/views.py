@@ -960,6 +960,7 @@ def fetch_employees_data_from_apollo(_data):
                 titles = person.get('title')
                 city = person.get('city')
                 country = person.get('country')
+                email_status = person.get('email_status')
 
                 # Insert or update employee data in apollo_emails
                 result = apollo_emails_collection.update_one(
@@ -971,7 +972,8 @@ def fetch_employees_data_from_apollo(_data):
                             'city': city,
                             'country': country,
                             'timestamp': datetime.now(),
-                            'organization_id': organization_id[0]
+                            'organization_id': organization_id[0],
+                            "email_status": email_status
                         },
                         '$addToSet': {
                             'titles': titles
