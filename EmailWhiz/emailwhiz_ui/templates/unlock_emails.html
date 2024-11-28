@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fetch Employee Data</title>
+    <title>Fetch Employee Emails</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
@@ -12,7 +12,7 @@
         <div class="text-center mb-8">
           <h1 class="text-3xl font-bold">Fetch Employee Data</h1>
           <p id="count-summary" class="text-sm text-gray-500">Loading company stats...</p>
-          <p id="employees-count-summary" class="text-sm text-gray-500">Loading company stats...</p>
+          
           
         </div>
       
@@ -23,7 +23,7 @@
             class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded"
             onclick="showFetchByCompany()"
           >
-            Fetch Employee Data by Company
+            Fetch Employee Emails by Company
           </button>
           <button
             id="fetch-automatically-btn"
@@ -84,6 +84,7 @@
                     <th class="border border-gray-300 p-2 text-left">Name</th>
                     <th class="border border-gray-300 p-2 text-left">Actions</th>
                     <th class="border border-gray-300 p-2 text-left">Employees Count</th>
+                    <th class="border border-gray-300 p-2 text-left">Emails Unlocked</th>
                   </tr>
                 </thead>
                 <tbody id="selected-companies-table">
@@ -93,14 +94,14 @@
             </div>
             
             <button
-              onclick="fetchEmployeesByCompany()"
+              onclick="fetchEmailsByCompany()"
               class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-4"
             >
               Start Fetching
             </button>
             <div id="by-company-progress-section" class="hidden mt-4">
               <p class="text-sm mb-2">Processed: <span id="by-company-processed">0</span> / <span id="by-company-total">0</span></p>
-              <p class="text-sm mb-2">New Employees Fetched: <span id="new-employees-fetched-count">0</span>
+              <p class="text-sm mb-2">New Emails Fetched: <span id="new-emails-fetched-count">0</span>
               <div class="h-2 bg-gray-200 rounded">
                 <div id="by-company-progress-bar" class="h-2 bg-blue-500 rounded" style="width: 0%;"></div>
               </div>
@@ -109,7 +110,7 @@
           </div>
 <!-- Fetch Automatically Section -->
           <div id="fetch-automatically-section" class="hidden">
-            <h2 class="text-xl font-bold mb-4">Fetch Employee Data Automatically</h2>
+            <h2 class="text-xl font-bold mb-4">Fetch Employee Emails Automatically</h2>
             <div class="mb-4">
               <label for="num-auto-fetch" class="block text-sm font-medium mb-1">Number of Companies (X)</label>
               <input
@@ -120,14 +121,14 @@
               />
             </div>
             <button
-              onclick="fetchEmployeesAutomatically()"
+              onclick="fetchEmailsAutomatically()"
               class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
             >
               Start Fetching
             </button>
             <div id="auto-progress-section" class="hidden mt-4">
               <p class="text-sm mb-2">Processed: <span id="auto-processed">0</span> / <span id="auto-total">0</span></p>
-              <p class="text-sm mb-2">New Employees Fetched: <span id="new-employees-fetched-count">0</span>
+              <p class="text-sm mb-2">New Employees Fetched: <span id="new-emails-fetched-count">0</span>
               <div class="h-2 bg-gray-200 rounded">
                 <div id="auto-progress-bar" class="h-2 bg-green-500 rounded" style="width: 0%;"></div>
               </div>
@@ -141,39 +142,33 @@
       </div>
       
       <script>
-      let totalCompanies = 0;
-      let newEmployeesFetched = 0;
-      let processedCompanies = 0;
+        
+      let totalEmails = 0;
+      let newEmailslFetched = 0;
+      let unlockedEmails = 0;
       let companies = []; // All companies fetched
 let selectedCompanies = []; 
 
-let isEmployeesfetched = false;
+let isEmailsfetched = false;
 function isfetched(){
-    return isEmployeesfetched;
+    return isEmailsfetched;
 }
 // Selected companies for processing
       // Function to update the count summary
-      async function updateCompaniesCountSummary() {
-        const response = await fetch("/api/company-count");
+      async function updateEmailsCountSummary() {
+        const response = await fetch("/api/apollo-emails-count");
         const data = await response.json();
-        totalCompanies = data.total;
-        processedCompanies = data.processed;
+        totalEmails = data.total;
+        unlockedEmails = data.unlocked_emails_count;
         document.getElementById("count-summary").textContent =
-          `Companies Processed: ${processedCompanies}, Companies Remaining: ${totalCompanies - processedCompanies}, Total Companies: ${totalCompanies}`;
+          `Emails Unlocked: ${unlockedEmails}, Emails Remaining: ${totalEmails - unlockedEmails}, Total Emails: ${totalEmails}`;
       }
       
       
-      async function updateEmployeesCountSummary() {
-        const response = await fetch("/api/employees-count");
-        const data = await response.json();
-        totalCompanies = data.total;
-        
-        document.getElementById("employees-count-summary").textContent =
-          `Total Employees Fetched: ${totalCompanies}`;
-      }
+      
       // Show Fetch by Company section
       function showFetchByCompany() {
-        isEmployeesfetched = false;
+        isEmailsfetched = false;
         document.getElementById("fetch-by-company-section").classList.remove("hidden");
         document.getElementById("employee-job-titles-class").classList.remove("hidden");
         document.getElementById("employee-locations-class").classList.remove("hidden");
@@ -184,7 +179,7 @@ function isfetched(){
       
       // Show Fetch Automatically section
       function showFetchAutomatically() {
-        isEmployeesfetched = false;
+        isEmailsfetched = false;
         document.getElementById("fetch-by-company-section").classList.add("hidden");
         document.getElementById("employee-job-titles-class").classList.remove("hidden");
         document.getElementById("employee-locations-class").classList.remove("hidden");
@@ -194,9 +189,8 @@ function isfetched(){
       
     
       // Fetch employees by selected companies
-      async function fetchEmployeesByCompany() {
-        console.log("isEmployeesfetched", isEmployeesfetched)
-        if(isEmployeesfetched){
+      async function fetchEmailsByCompany() {
+        if(isEmailsfetched){
             document.getElementById("by-company-logs").innerHTML = "Employees Already Fetched. Kindly Reload"
             return;
         }
@@ -221,9 +215,9 @@ function isfetched(){
         document.getElementById("by-company-total").textContent = total;
         document.getElementById("by-company-progress-section").classList.remove("hidden");
         let tempSelectedCompanies = [];
-        newEmployeesFetched=0;
+        newEmailslFetched=0;
         for (const company of selectedCompanies) {
-          const response = await fetch(`/api/fetch-employees/`, {
+          const response = await fetch(`/api/fetch-employees-emails/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" ,'X-CSRFToken': '{{ csrf_token }}',},
             body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations }),
@@ -235,12 +229,13 @@ function isfetched(){
           document.getElementById("by-company-logs").innerHTML += `<span>Processed company ${company.name}: ${JSON.stringify(result)} </span><br>`;
           let tempCompany = company;
             // console.log(JSON.stringify(result), result["data"], typeof(result["data"]));
-          tempCompany.employees_count = result["data"]["total_employees_fetched"];
-          newEmployeesFetched += result["data"]["total_employees_fetched"];
+          tempCompany.employees_count = result["data"]["total_emails_fetched"];
+          
+          newEmailslFetched += result["data"]["total_emails_fetched"];
           tempSelectedCompanies.push(tempCompany)
-          isEmployeesfetched = true;
+          isEmailsfetched = true;
         }
-        document.getElementById("new-employees-fetched-count").textContent = newEmployeesFetched;
+        document.getElementById("new-emails-fetched-count").textContent = newEmailslFetched;
         selectedCompanies = tempSelectedCompanies;
         updateSelectedCompaniesTable();
       }
@@ -255,8 +250,8 @@ function isfetched(){
 // }
       
       // Fetch employees automatically
-      async function fetchEmployeesAutomatically() {
-        if(isEmployeesfetched){
+      async function fetchEmailsAutomatically() {
+        if(isEmailsfetched){
             document.getElementById("by-company-logs").innerHTML = "Employees Already Fetched. Kindly Reload"
             return;
         }
@@ -275,9 +270,9 @@ function isfetched(){
         
         document.getElementById("auto-total").textContent = total;
         document.getElementById("auto-progress-section").classList.remove("hidden");
-        newEmployeesFetched=0;
+        newEmailslFetched=0;
         for (let i = 0; i < total; i++) {
-          const response = await fetch(`/api/fetch-employees/`, {
+          const response = await fetch(`/api/fetch-employees-emails/`, {
             method: "POST",
             headers: { "Content-Type": "application/json", 'X-CSRFToken': '{{ csrf_token }}', },
             body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations }),
@@ -287,10 +282,10 @@ function isfetched(){
           document.getElementById("auto-processed").textContent = processed;
           document.getElementById("auto-progress-bar").style.width = `${(processed / total) * 100}%`;
           document.getElementById("auto-logs").textContent += `Processed automatically: ${JSON.stringify(result)}\n`;
-          newEmployeesFetched += result["data"]["total_employees_fetched"];
-          isEmployeesfetched = true;
+          newEmailslFetched += result["data"]["total_emails_fetched"];
+          isEmailsfetched = true;
         }
-        document.getElementById("new-employees-fetched-count").textContent = newEmployeesFetched;
+        document.getElementById("new-emails-fetched-count").textContent = newEmailslFetched;
       }
 // Add company to the selected list
 function addToSelected(companyId) {
@@ -313,6 +308,7 @@ async function handleSearchInput() {
     const response = await fetch(`/api/search-companies?query=${query}`);
     const results = await response.json();
     companies = results; // Update the local companies list
+    console.log("Companies: ", companies)
 
     const dropdown = document.getElementById("dropdown");
     dropdown.innerHTML = companies
@@ -362,6 +358,7 @@ function removeFromSelected(companyId) {
           </button>
         </td>
         <td class="border border-gray-300 p-2">${(company?.employees_count || company?.employees_count == 0) ? company?.employees_count: 'N/A'}</td>
+        <td class="border border-gray-300 p-2">${(company?.emails_unlocked_count || company?.emails_unlocked_count == 0) ? company?.emails_unlocked_count: 'N/A'}</td>
       </tr>
     `
     )
@@ -369,12 +366,12 @@ function removeFromSelected(companyId) {
 }
       
       // Update counts on load
-      updateCompaniesCountSummary();
-      updateEmployeesCountSummary();
+      updateEmailsCountSummary();
+
 
       
+
       </script>
-      
       
 </body>
 </html>

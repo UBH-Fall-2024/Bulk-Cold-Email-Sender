@@ -305,3 +305,6 @@ def select_companies(request):
 
 def fetch_employees_data(request):
     return render(request, 'fetch_employees.html')
+
+def unlock_emails(request):
+    return render(request, 'unlock_emails.html')

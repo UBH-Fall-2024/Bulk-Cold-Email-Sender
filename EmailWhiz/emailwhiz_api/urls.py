@@ -18,9 +18,13 @@ urlpatterns = [
     path('keyword-counts/', views.get_keyword_combinations_counts, name='get_keyword_combinations_counts'),
     path('get-companies/', views.scrape_companies, name='scrape_companies'),
     path('company-count/', views.company_count, name='company_count'),
+    path('apollo-emails-count/', views.apollo_emails_count, name='apollo_emails_count'),
+    
     path('get-non-processed-companies/', views.get_non_processed_companies, name='get_non_processed_companies'),
     path('search-companies/', views.search_companies, name='search_companies'),
     path('fetch-employees/', views.fetch_employees, name='fetch_employees'),
+    path('fetch-employees-emails/', views.fetch_employees_emails, name='fetch_employees_emails'),
+    
     path('employees-count/', views.employees_count, name='employees_count'),
     
     
