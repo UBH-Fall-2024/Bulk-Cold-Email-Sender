@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch Employee Emails</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="container mx-auto py-10 px-6">
+        <!-- Header Section -->
+        <div class="text-center mb-8">
+          <h1 class="text-3xl font-bold">Fetch Employee Emails</h1>
+          <p id="count-summary" class="text-sm text-gray-500">Loading Email stats...</p>
+          
+          
+        </div>
+      
+        <!-- Buttons Section -->
+        <div class="flex justify-center gap-4 mb-8">
+          <button
+            id="fetch-by-company-btn"
+            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded"
+            onclick="showFetchByCompany()"
+          >
+            Fetch Employee Emails by Company
+          </button>
+          <button
+            id="fetch-automatically-btn"
+            class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded"
+            onclick="showFetchAutomatically()"
+          >
+            Fetch Employee Data Automatically
+          </button>
+        </div>
+        <div class="mb-6 hidden" id="employee-job-titles-class">
+            <label class="block text-sm font-medium mb-1">Employee Job Titles (comma-separated)</label>
+            <input 
+                type="text" 
+                id="employee-job-titles" 
+                class="w-full p-2 border rounded mb-2" 
+                placeholder="Enter Employee Job Titles (e.g., Senior Recruiter,Technical Recruiter)" 
+            />
+        </div>
+        <!-- Input for Locations -->
+        <div class="mb-6 hidden" id="employee-locations-class">
+            <label class="block text-sm font-medium mb-1">Locations (comma-separated)</label>
+            <input
+              type="text"
+              id="locations-input"
+              class="w-full p-2 border rounded mb-2"
+              placeholder="Enter locations (e.g., United States, India)"
+            />
+          </div>
+        <!-- Fetch By Company Section -->
+        <div id="fetch-by-company-section" class="hidden">
+            <h2 class="text-xl font-bold mb-4">Fetch Employee Data by Company</h2>
+            <div class="mb-4">
+              <label for="companies-select" class="block text-sm font-medium mb-2">Search Companies</label>
+              <div class="relative">
+                <input
+                  id="search-bar"
+                  type="text"
+                  placeholder="Search companies (min 3 characters)..."
+                  class="w-full p-2 border rounded mb-2"
+                  oninput="handleSearchInput()"
+                />
+                <div
+                  id="dropdown"
+                  class="absolute w-full bg-white border rounded shadow-md max-h-64 overflow-y-auto hidden"
+                >
+                  <!-- Suggestions will appear here -->
+                </div>
+              </div>
+            </div>
+        
+            <!-- Selected Companies Table -->
+            <div class="mt-6">
+              <h3 class="text-lg font-semibold mb-2">Selected Companies</h3>
+              <table class="w-full border-collapse border border-gray-300 bg-white">
+                <thead>
+                  <tr class="bg-black text-white">
+                    <th class="border border-gray-300 p-2 text-left">Logo</th>
+                    <th class="border border-gray-300 p-2 text-left">Name</th>
+                    <th class="border border-gray-300 p-2 text-left">Actions</th>
+                    <th class="border border-gray-300 p-2 text-left">Employees Count</th>
+                    <th class="border border-gray-300 p-2 text-left">Emails Unlocked</th>
+                  </tr>
+                </thead>
+                <tbody id="selected-companies-table">
+                  <!-- Rows for selected companies will be dynamically added here -->
+                </tbody>
+              </table>
+            </div>
+            
+            <button
+              onclick="fetchEmailsByCompany()"
+              class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-4"
+            >
+              Start Fetching
+            </button>
+            <div id="by-company-progress-section" class="hidden mt-4">
+              <p class="text-sm mb-2">Processed: <span id="by-company-processed">0</span> / <span id="by-company-total">0</span></p>
+              <p class="text-sm mb-2">New Emails Fetched: <span id="new-emails-fetched-count">0</span>
+              <div class="h-2 bg-gray-200 rounded">
+                <div id="by-company-progress-bar" class="h-2 bg-blue-500 rounded" style="width: 0%;"></div>
+              </div>
+            </div>
+            <div id="by-company-logs" class="mt-4 text-sm text-gray-700 bg-blue-200"></div>
+          </div>
+<!-- Fetch Automatically Section -->
+          <div id="fetch-automatically-section" class="hidden">
+            <h2 class="text-xl font-bold mb-4">Fetch Employee Emails Automatically</h2>
+            <div class="mb-4">
+              <label for="num-auto-fetch" class="block text-sm font-medium mb-1">Number of Companies (X)</label>
+              <input
+                id="num-auto-fetch"
+                type="number"
+                class="w-full p-2 border rounded"
+                placeholder="Enter number of companies"
+              />
+            </div>
+            <button
+              onclick="fetchEmailsAutomatically()"
+              class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+            >
+              Start Fetching
+            </button>
+            <div id="auto-progress-section" class="hidden mt-4">
+              <p class="text-sm mb-2">Processed: <span id="auto-processed">0</span> / <span id="auto-total">0</span></p>
+              <p class="text-sm mb-2">New Employees Fetched: <span id="new-emails-fetched-count">0</span>
+              <div class="h-2 bg-gray-200 rounded">
+                <div id="auto-progress-bar" class="h-2 bg-green-500 rounded" style="width: 0%;"></div>
+              </div>
+            </div>
+            <div id="auto-logs" class="mt-4 text-sm text-gray-700"></div>
+          </div>
+        </div>
+      
+        
+        
+      </div>
+      
+      <script>
+        
+      let totalEmails = 0;
+      let newEmailslFetched = 0;
+      let unlockedEmails = 0;
+      let companies = []; // All companies fetched
+let selectedCompanies = []; 
+
+let isEmailsfetched = false;
+function isfetched(){
+    return isEmailsfetched;
+}
+// Selected companies for processing
+      // Function to update the count summary
+      async function updateEmailsCountSummary() {
+        const response = await fetch("/api/apollo-emails-count");
+        const data = await response.json();
+        totalEmails = data.total;
+        unlockedEmails = data.unlocked_emails_count;
+        document.getElementById("count-summary").textContent =
+          `Emails Unlocked: ${unlockedEmails}, Emails Remaining: ${totalEmails - unlockedEmails}, Total Emails: ${totalEmails}`;
+      }
+      
+      
+      
+      // Show Fetch by Company section
+      function showFetchByCompany() {
+        isEmailsfetched = false;
+        document.getElementById("fetch-by-company-section").classList.remove("hidden");
+        document.getElementById("employee-job-titles-class").classList.remove("hidden");
+        document.getElementById("employee-locations-class").classList.remove("hidden");
+        
+        document.getElementById("fetch-automatically-section").classList.add("hidden");
+        // populateCompanySelect();
+      }
+      
+      // Show Fetch Automatically section
+      function showFetchAutomatically() {
+        isEmailsfetched = false;
+        document.getElementById("fetch-by-company-section").classList.add("hidden");
+        document.getElementById("employee-job-titles-class").classList.remove("hidden");
+        document.getElementById("employee-locations-class").classList.remove("hidden");
+         
+        document.getElementById("fetch-automatically-section").classList.remove("hidden");
+      }
+      
+    
+      // Fetch employees by selected companies
+      async function fetchEmailsByCompany() {
+        if(isEmailsfetched){
+            document.getElementById("by-company-logs").innerHTML = "Employees Already Fetched. Kindly Reload"
+            return;
+        }
+        const locationsInput = document.getElementById("locations-input").value;
+        const jobTitlesInput = document.getElementById('employee-job-titles').value;
+        if (!locationsInput || !jobTitlesInput) {
+            console.log(locationsInput, jobTitlesInput)
+            alert("Please enter valid inputs for locations and Job Titles. ");
+            return;
+        }
+        const locations = locationsInput.split(",").map((loc) => loc.trim());
+        const jobTitles = jobTitlesInput.split(",").map((loc) => loc.trim());
+        
+
+       
+        // const selectedCompanies = Array.from(
+        //   document.getElementById("companies-select").selectedOptions
+        // ).map((option) => option.value);
+        const total = selectedCompanies.length;
+        let processed = 0;
+        document.getElementById("by-company-logs").innerHTML = '';
+        document.getElementById("by-company-total").textContent = total;
+        document.getElementById("by-company-progress-section").classList.remove("hidden");
+        let tempSelectedCompanies = [];
+        newEmailslFetched=0;
+        for (const company of selectedCompanies) {
+          const response = await fetch(`/api/fetch-employees-emails/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" ,'X-CSRFToken': '{{ csrf_token }}',},
+            body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations }),
+          });
+          const result = await response.json();
+          processed++;
+          document.getElementById("by-company-processed").textContent = processed;
+          document.getElementById("by-company-progress-bar").style.width = `${(processed / total) * 100}%`;
+          document.getElementById("by-company-logs").innerHTML += `<span>Processed company ${company.name}: ${JSON.stringify(result)} </span><br>`;
+          let tempCompany = company;
+            // console.log(JSON.stringify(result), result["data"], typeof(result["data"]));
+          tempCompany.employees_count = result["data"]["total_emails_fetched"];
+          
+          newEmailslFetched += result["data"]["total_emails_fetched"];
+          tempSelectedCompanies.push(tempCompany)
+          isEmailsfetched = true;
+        }
+        document.getElementById("new-emails-fetched-count").textContent = newEmailslFetched;
+        selectedCompanies = tempSelectedCompanies;
+        updateSelectedCompaniesTable();
+      }
+
+//       function toggleSelection(companyId) {
+//   if (selectedCompanies.includes(companyId)) {
+//     selectedCompanies = selectedCompanies.filter((id) => id !== companyId);
+//   } else {
+//     selectedCompanies.push(companyId);
+//   }
+//   console.log("Selected Companies:", selectedCompanies);
+// }
+      
+      // Fetch employees automatically
+      async function fetchEmailsAutomatically() {
+        if(isEmailsfetched){
+            document.getElementById("by-company-logs").innerHTML = "Employees Already Fetched. Kindly Reload"
+            return;
+        }
+        const locationsInput = document.getElementById("locations-input").value;
+        const jobTitlesInput = document.getElementById('employee-job-titles').value;
+        if (!locationsInput || !jobTitlesInput) {
+            alert("Please enter valid inputs for locations and Job Titles.");
+            return;
+        }
+        const locations = locationsInput.split(",").map((loc) => loc.trim());
+        const jobTitles = jobTitlesInput.split(",").map((loc) => loc.trim());
+        
+        const numFetch = parseInt(document.getElementById("num-auto-fetch").value);
+        const total = numFetch;
+        let processed = 0;
+        
+        document.getElementById("auto-total").textContent = total;
+        document.getElementById("auto-progress-section").classList.remove("hidden");
+        newEmailslFetched=0;
+        for (let i = 0; i < total; i++) {
+          const response = await fetch(`/api/fetch-employees-emails/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", 'X-CSRFToken': '{{ csrf_token }}', },
+            body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations }),
+          });
+          const result = await response.json();
+          processed++;
+          document.getElementById("auto-processed").textContent = processed;
+          document.getElementById("auto-progress-bar").style.width = `${(processed / total) * 100}%`;
+          document.getElementById("auto-logs").textContent += `Processed automatically: ${JSON.stringify(result)}\n`;
+          newEmailslFetched += result["data"]["total_emails_fetched"];
+          isEmailsfetched = true;
+        }
+        document.getElementById("new-emails-fetched-count").textContent = newEmailslFetched;
+      }
+// Add company to the selected list
+function addToSelected(companyId) {
+  const company = companies.find((c) => c.id === companyId);
+  if (!selectedCompanies.find((c) => c.id === companyId)) {
+    selectedCompanies.push(company);
+
+    // Update the selected companies table
+    updateSelectedCompaniesTable();
+    // console.log(selectedCompanies)
+  }
+}
+
+// Search companies only when input length is >=3
+async function handleSearchInput() {
+  const query = document.getElementById("search-bar").value.trim();
+
+  // Show suggestions only if input length is ≥3
+  if (query.length >= 3) {
+    const response = await fetch(`/api/search-companies?query=${query}`);
+    const results = await response.json();
+    companies = results; // Update the local companies list
+    console.log("Companies: ", companies)
+
+    const dropdown = document.getElementById("dropdown");
+    dropdown.innerHTML = companies
+      .map(
+        (company) => `
+        <div
+          class="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
+          onclick="addToSelected('${company.id}')"
+        >
+          <img src="${company.logo_url}" alt="${company.name}" class="w-8 h-8 rounded mr-4" />
+          <span class="text-sm">${company.name}</span>
+        </div>
+      `
+      )
+      .join("");
+
+    dropdown.classList.remove("hidden");
+  } else {
+    document.getElementById("dropdown").classList.add("hidden");
+  }
+}
+      // Remove company from the selected list
+function removeFromSelected(companyId) {
+  selectedCompanies = selectedCompanies.filter((c) => c.id !== companyId);
+
+  // Update the selected companies table
+  updateSelectedCompaniesTable();
+}
+
+      function updateSelectedCompaniesTable() {
+  const tableBody = document.getElementById("selected-companies-table");
+  console.log("selectedCompanies: ", selectedCompanies)
+  tableBody.innerHTML = selectedCompanies
+    .map(
+      (company) => `
+      <tr>
+        <td class="border border-gray-300 p-2">
+          <img src="${company.logo_url}" alt="${company.name}" class="w-10 h-10 rounded" />
+        </td>
+        <td class="border border-gray-300 p-2">${company.name}</td>
+        <td class="border border-gray-300 p-2">
+          <button
+            class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
+            onclick="removeFromSelected('${company.id}')"
+          >
+            Remove
+          </button>
+        </td>
+        <td class="border border-gray-300 p-2">${(company?.employees_count || company?.employees_count == 0) ? company?.employees_count: 'N/A'}</td>
+        <td class="border border-gray-300 p-2">${(company?.emails_unlocked_count || company?.emails_unlocked_count == 0) ? company?.emails_unlocked_count: 'N/A'}</td>
+      </tr>
+    `
+    )
+    .join("");
+}
+      
+      // Update counts on load
+      updateEmailsCountSummary();
+
+
+      
+
+      </script>
+      
+</body>
+</html>

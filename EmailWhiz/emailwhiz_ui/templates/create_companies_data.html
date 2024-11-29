@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyword Permutations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div class="container mx-auto py-10 px-6">
+    <div class="mb-12">
+      <p class="text-sm">Total Permutations Processed: <span id="total-processed">0</span></p>
+      <p class="text-sm">Total Unprocessed Permutations: <span id="total-unprocessed">0</span></p>
+  </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Left Side: Inputs -->
+      
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Fetch Companies</h2>
+  
+        <!-- Input for Locations -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-1">Locations (comma-separated)</label>
+          <input
+            type="text"
+            id="locations-input"
+            class="w-full p-2 border rounded"
+            placeholder="Enter locations (e.g., United States, India)"
+          />
+        </div>
+  
+        <!-- Input for Number of API Calls -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-1">Number of API Calls (X)</label>
+          <input
+            type="number"
+            id="num-api-calls"
+            class="w-full p-2 border rounded"
+            placeholder="Enter the number of API calls to make"
+          />
+        </div>
+        
+  
+        <!-- Button to Start the Process -->
+        <button
+          onclick="startFetchingCompanies()"
+          class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+          id="start-fetch-btn"
+        >
+          Start Fetching Companies
+        </button>
+  
+        <!-- Progress Section -->
+        <div id="progress-section" class="hidden mt-4">
+          <p class="text-sm mb-2">Processed: <span id="processed-count">0</span> / <span id="total-calls">0</span></p>
+          <div class="h-2 bg-gray-200 rounded">
+            <div id="progress-bar" class="h-2 bg-blue-500 rounded" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Right Side: Logs -->
+      <div>
+        <h2 class="text-2xl font-bold mb-4">API Logs</h2>
+        <div id="loader0" class="hidden flex items-center justify-center mb-4">
+          <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <p class="text-blue-500 ml-2 text-sm font-medium">Processing...</p>
+      </div>
+        <pre
+          id="api-logs"
+          class="bg-gray-100 p-4 border rounded text-sm overflow-x-auto max-h-96"
+        >Logs will appear here...</pre>
+      </div>
+      <div>
+        <span>Total Companies Added: </span> <span id="total-companies">0</span>
+      </div>
+    </div>
+  </div>
+  <div class="container mx-auto py-10 px-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Left Side: Inputs -->
+        <div>
+            <h2 class="text-2xl font-bold mb-4">API Operations</h2>
+
+            <!-- Add Keyword Section -->
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-4">Add Keyword</h3>
+                <label class="block text-sm font-medium mb-1">New Keyword</label>
+                <input 
+                    type="text" 
+                    id="new-keyword" 
+                    class="w-full p-2 border rounded mb-2" 
+                    placeholder="Enter new keyword" 
+                />
+                <button 
+                    onclick="addKeyword()" 
+                    class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                >
+                    Add Keyword
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Side: Loader and API Response -->
+        <div>
+            <h2 class="text-2xl font-bold mb-4">API Progress</h2>
+
+            <!-- Loader Section -->
+            <div id="loader" class="hidden flex items-center justify-center mb-4">
+                <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                <p class="text-blue-500 ml-2 text-sm font-medium">Processing...</p>
+            </div>
+
+            <!-- API Response Section -->
+            <pre
+                id="api-response"
+                class="bg-gray-100 p-4 border rounded text-sm overflow-x-auto max-h-96"
+            >
+Response will appear here...
+            </pre>
+        </div>
+    </div>
+  </div>
+
+  <script>
+    // Function to show loader
+    function showLoader() {
+        const loader = document.getElementById('loader');
+        loader.classList.remove('hidden');
+    }
+
+    // Function to hide loader
+    function hideLoader() {
+        const loader = document.getElementById('loader');
+        loader.classList.add('hidden');
+    }
+
+    // Function to handle adding a keyword
+    async function addKeyword() {
+        const newKeyword = document.getElementById('new-keyword').value.trim();
+
+        if (!newKeyword) {
+            alert('Please enter a keyword!');
+            return;
+        }
+
+        // Show loader
+        showLoader();
+
+        try {
+            const response = await fetch('/api/add-keyword/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: JSON.stringify({ keyword: newKeyword }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert('Keyword added and combinations updated successfully!');
+                document.getElementById('new-keyword').value = ''; // Clear input field
+                document.getElementById('api-response').textContent = JSON.stringify(data, null, 2);
+            } else {
+                alert(data.message || 'Failed to add keyword.');
+                document.getElementById('api-response').textContent = JSON.stringify(data, null, 2);
+            }
+        } catch (error) {
+            console.error('Error adding keyword:', error);
+            alert('An error occurred while adding the keyword.');
+        } finally {
+            // Hide loader
+            hideLoader();
+        }
+    }
+
+    function showLoader_0() {
+            document.getElementById('loader0').classList.remove('hidden');
+        }
+
+        // Hide Loader
+        function hideLoader_0() {
+            document.getElementById('loader0').classList.add('hidden');
+        }
+
+        async function startFetchingCompanies() {
+  const locationsInput = document.getElementById("locations-input").value;
+  const numApiCalls = parseInt(document.getElementById("num-api-calls").value);
+
+  if (!locationsInput || numApiCalls <= 0) {
+    alert("Please enter valid inputs for locations and API calls.");
+    return;
+  }
+  showLoader_0();
+  const locations = locationsInput.split(",").map((loc) => loc.trim());
+  const logs = document.getElementById("api-logs");
+  const progressSection = document.getElementById("progress-section");
+  const processedCountElem = document.getElementById("processed-count");
+  const totalCalls = document.getElementById("total-calls");
+  const progressBar = document.getElementById("progress-bar");
+  const totalCompaniesAdded = document.getElementById("total-companies");
+  logs.textContent = "";
+  progressSection.classList.remove("hidden");
+  processedCountElem.textContent = 0;
+  totalCalls.textContent = numApiCalls;
+  progressBar.style.width = "0%";
+
+  let processedCount = 0;
+  let totalCompaniesAddition = 0;
+  for (let i = 0; i < numApiCalls; i++) {
+    try {
+      const response = await fetch('/api/get-companies/', {
+        method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+        body: JSON.stringify({
+          locations: locations,
+        }),
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+      const data = await response.json();
+      if ('success' in data){
+        totalCompaniesAddition += data['success']['companies_addition_count']
+        logs.textContent += `Call ${i + 1}: `;
+        logs.textContent += JSON.stringify(data) + "\n";
+        totalCompaniesAdded.textContent = totalCompaniesAddition;
+      }
+      
+    } catch (error) {
+      logs.textContent += `Call ${i + 1}: Error - ${error.message}\n\n`;
+    }
+
+    processedCount++;
+    processedCountElem.textContent = processedCount;
+    progressBar.style.width = `${(processedCount / numApiCalls) * 100}%`;
+    
+  }
+
+  // alert("Fetching completed!");
+  hideLoader_0();
+}
+
+        // Function to fetch processed/unprocessed counts
+        async function fetchCounts() {
+            showLoader_0();
+            try {
+                const response = await fetch('/api/keyword-counts/', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                });
+
+                const data = await response.json();
+                document.getElementById('total-processed').textContent = data.processed;
+                document.getElementById('total-unprocessed').textContent = data.unprocessed;
+            } catch (error) {
+                console.error('Error fetching counts:', error);
+            } finally {
+                hideLoader_0();
+            }
+        }
+
+        // Call fetchCounts on page load
+        window.onload = fetchCounts;
+  </script>
+</body>
+</html>
+
+
