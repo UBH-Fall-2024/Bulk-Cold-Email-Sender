@@ -9,7 +9,7 @@ import os
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.contrib.auth.models import User
 
 from emailwhiz_api.views import get_user_details
@@ -239,3 +239,98 @@ def email_history(request):
     context = {'history_by_company': history_by_company, 'resumes': resumes, 'username': username}
     print("history: ", history_data, history_file)
     return render(request, 'email_history.html', context)
+
+
+def update_apollo_apis(request):
+    # Load or initialize JSON data
+    details = get_user_details(request.user)
+    username = details['username']
+    user_dir = os.path.join(settings.MEDIA_ROOT, username)
+    os.makedirs(user_dir, exist_ok=True)
+    json_path = os.path.join(user_dir, 'apollo_apis_details.json')
+
+    # Load or initialize JSON data
+    api_details = {}
+    if os.path.exists(json_path):
+        with open(json_path, 'r') as file:
+            api_details = json.load(file)
+    
+    context = {
+        'api1_value': api_details.get('api1', {}).get('curl_request', ''),
+        'api2_value': api_details.get('api2', {}).get('curl_request', ''),
+        'api3_value': api_details.get('api3', {}).get('curl_request', ''),
+    }
+    return render(request, 'update_apollo_apis.html', context)
+
+
+def create_companies_data(request):
+    return render(request, 'create_companies_data.html')
+
+
+def get_companies_datasets(request):
+    details = get_user_details(request.user)
+    username = details['username']
+    user_dir = os.path.join(settings.MEDIA_ROOT, username)
+    datasets = [
+        f for f in os.listdir(user_dir) if f.endswith('.json')
+    ]
+    print("Datasets: ", datasets)
+    return render(request, 'select_companies_dataset.html', { 'datasets': datasets})
+
+def select_companies(request):
+    dataset = request.GET.get('dataset')
+    if not dataset:
+        return JsonResponse({'error': 'Dataset not selected'}, status=400)
+
+    details = get_user_details(request.user)
+    username = details['username']
+    user_dir = os.path.join(settings.MEDIA_ROOT, username, dataset)
+
+    with open(user_dir, 'r') as f:
+        companies = json.load(f)
+    return render(request, 'select_companies.html', {'companies': companies})
+
+def select_companies(request):
+    dataset = request.GET.get('dataset')
+    if not dataset:
+        return JsonResponse({'error': 'Dataset not selected'}, status=400)
+
+    details = get_user_details(request.user)
+    username = details['username']
+    user_dir = os.path.join(settings.MEDIA_ROOT, username, dataset)
+
+    with open(user_dir, 'r') as f:
+        companies = json.load(f)
+    return render(request, 'select_companies.html', {'companies': companies})
+
+def fetch_employees_data(request):
+    return render(request, 'fetch_employees.html')
+
+def unlock_emails(request):
+    return render(request, 'unlock_emails.html')
+
+def send_cold_emails_through_apollo_emails(request):
+    details = get_user_details(request.user)
+    username = details['username']
+    templates_dir = os.path.join(settings.BASE_DIR, 'emailwhiz_api', 'users', username, 'templates')
+    
+    # Load template names and their content
+    templates = []
+    if os.path.exists(templates_dir):
+        for template_file in os.listdir(templates_dir):
+            if template_file.endswith('.txt'):
+                template_path = os.path.join(templates_dir, template_file)
+                with open(template_path, 'r') as f:
+                    content = f.read()
+                templates.append({
+                    'name': template_file, 
+                    'content': content
+                })
+
+    details = get_user_details(request.user)
+
+    resumes_dir = os.path.join(settings.BASE_DIR, 'emailwhiz_api', 'users', username, 'resumes')
+    print("resume_dir: ", resumes_dir, settings.BASE_DIR)
+    resumes = [f for f in os.listdir(resumes_dir) if f.endswith('.pdf')]
+    print("resumes: ", resumes)
+    return render(request, 'send_cold_emails_through_apollo_emails.html', {'templates': templates, 'resumes': resumes})

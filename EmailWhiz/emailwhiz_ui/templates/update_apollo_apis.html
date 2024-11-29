@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update API Details</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        async function testApi(apiName) {
+            const loader = document.getElementById(`${apiName}-test-loader`);
+            const responseBox = document.getElementById('response-box');
+            loader.classList.remove('hidden');
+            responseBox.textContent = "Loading...";
+
+            try {
+                const response = await fetch(`/api/hit-apollo-api/${apiName}`);
+                const result = await response.json();
+                console.log("Result: ", result)
+                responseBox.textContent = JSON.stringify(result, null, 2);
+            } catch (error) {
+                responseBox.textContent = `Error: ${error.message}`;
+            } finally {
+                loader.classList.add('hidden');
+            }
+        }
+
+        function showLoader(apiId) {
+            document.getElementById(`${apiId}-submit`).classList.add('hidden');
+            document.getElementById(`${apiId}-loader`).classList.remove('hidden');
+        }
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center py-10">
+    <div class="w-full max-w-5xl bg-white shadow-md rounded-lg p-6">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Manage API Details</h1>
+        <div class="grid grid-cols-2 gap-6">
+            <!-- Left Column: Forms -->
+            <div>
+                <!-- Form for API 1 -->
+                <form method="POST" action="{% url 'update_apollo_apis' 'api1' %}" class="space-y-4" onsubmit="showLoader('api1')">
+                    {% csrf_token %}
+                    <div>
+                        <label for="api1" class="block text-sm font-medium text-gray-700">Get Companies ID (API 1)</label>
+                        <textarea id="api1" name="curl_request" rows="5"
+                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+                                  placeholder="Paste the curl request for 'Get Companies ID' API here">{{ api1_value }}</textarea>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <button id="api1-submit" type="submit"
+                                class="bg-blue-600 text-white font-medium py-2 px-4 rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            Update API 1
+                        </button>
+                        <div id="api1-loader" class="hidden">
+                            <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                        </div>
+                        <button type="button" onclick="testApi('api1')"
+                                class="bg-green-600 text-white font-medium py-2 px-4 rounded-md shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                            Test API 1
+                        </button>
+                        <div id="api1-test-loader" class="hidden">
+                            <svg class="animate-spin h-5 w-5 text-green-600 ml-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </form>
+                <form method="POST" action="{% url 'update_apollo_apis' 'api2' %}" class="space-y-4" onsubmit="showLoader('api2')">
+                    {% csrf_token %}
+                    <div>
+                        <label for="api2" class="block text-sm font-medium text-gray-700">Get Recruiters IDs (API 2)</label>
+                        <textarea id="api2" name="curl_request" rows="5"
+                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+                                  placeholder="Paste the curl request for 'Get Companies ID' API here">{{ api2_value }}</textarea>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <button id="api2-submit" type="submit"
+                                class="bg-blue-600 text-white font-medium py-2 px-4 rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            Update API 2
+                        </button>
+                        <div id="api2-loader" class="hidden">
+                            <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                        </div>
+                        <button type="button" onclick="testApi('api2')"
+                                class="bg-green-600 text-white font-medium py-2 px-4 rounded-md shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                            Test API 2
+                        </button>
+                        <div id="api2-test-loader" class="hidden">
+                            <svg class="animate-spin h-5 w-5 text-green-600 ml-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </form>
+                <form method="POST" action="{% url 'update_apollo_apis' 'api3' %}" class="space-y-4" onsubmit="showLoader('api3')">
+                    {% csrf_token %}
+                    <div>
+                        <label for="api3" class="block text-sm font-medium text-gray-700">Get Recruiter Email (API 3)</label>
+                        <textarea id="api3" name="curl_request" rows="5"
+                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+                                  placeholder="Paste the curl request for 'Get Companies ID' API here">{{ api3_value }}</textarea>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <button id="api3-submit" type="submit"
+                                class="bg-blue-600 text-white font-medium py-2 px-4 rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            Update API 3
+                        </button>
+                        <div id="api3-loader" class="hidden">
+                            <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                        </div>
+                        <button type="button" onclick="testApi('api3')"
+                                class="bg-green-600 text-white font-medium py-2 px-4 rounded-md shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                            Test API 3
+                        </button>
+                        <div id="api3-test-loader" class="hidden">
+                            <svg class="animate-spin h-5 w-5 text-green-600 ml-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </form>
+                <!-- Repeat similar blocks for API 2 and API 3 -->
+            </div>
+
+            <!-- Right Column: Response Viewer -->
+            <div>
+                <h2 class="text-lg font-bold text-gray-800 mb-4">API Test Response</h2>
+                <div id="response-box" class="bg-gray-100 p-4 rounded-md shadow-md text-sm text-gray-800 overflow-auto h-96 whitespace-pre">
+                    <p>Response will appear here...</p>
+                </div>
+                <div class="text-center mt-8">
+                    <a href="{% url 'home' %}" class="bg-black text-white py-2 px-4 rounded hover:bg-black-600">Back to Home</a>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</body>
+</html>

@@ -5,15 +5,17 @@ from django.http import HttpResponse
 from PyPDF2 import PdfReader
 from django.conf import settings
 from django.shortcuts import render, redirect
-
+import traceback
 from emailwhiz_api.email_sender import send_email
 from .forms import ResumeSelectionForm, TemplateSelectionForm
 import os
-
+import requests
+import shlex
+import datetime as dt
 import pytz
-
+from itertools import combinations
 from datetime import datetime
-
+import math
 import google.generativeai as genai
 from django.shortcuts import render
 from django.http import JsonResponse
@@ -23,15 +25,30 @@ from django.core.mail import send_mail
 from django.core.files.storage import FileSystemStorage
 import json
 
-
+import time
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
+from pymongo import MongoClient
+
+client = MongoClient('mongodb://localhost:27017/')  # Replace with your MongoDB connection URI
+db = client['EmailWhiz']  # Replace with your database name
+companies_collection = db['companies'] 
+and_collection = db['and_company_keywords']
+combination_collection = db['combinations_company_keywords']
+apollo_apis_curl_collection = db['apollo_apis_curl']
+apollo_emails_collection = db['apollo_emails']
+apollo_emails_sent_history_collection = db['apollo_emails_sent_history']
+
+proxy = {
+    "http": "http://User-001:123456@192.168.56.1:808",
+    "https": "https://User-001:123456@192.168.56.1:808",
+}
 
 CustomUser = get_user_model()
 
-from dotenv import load_dotenv
-load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 
 
 def get_template(details):
@@ -412,7 +429,7 @@ def send_emails(request):
             company_name = employer['company']
             message = employer['email_content']
             resume_path = employer['resume_path']
-            subject = f"[{details['first_name']}]: Exploring {designation} Roles at {company_name}"
+            subject = f"[{details['first_name']} {details['last_name']}]: Exploring {designation} Roles at {company_name}"
         
             send_email(details['gmail_id'], details['gmail_in_app_password'], receiver_email, subject, message, resume_path)
             update_email_history(details['username'], receiver_email, subject, message, company_name, designation)
@@ -494,3 +511,914 @@ def send_followup(request):
         update_email_history(username, receiver_email, subject, content)
         return redirect('email_history')
         
+
+
+def update_apollo_apis(request, api_name):
+
+    details = get_user_details(request.user)
+    username = details['username']
+    
+    # Ensure the collection has an entry for this user
+    user_entry = apollo_apis_curl_collection.find_one({'username': username})
+    if not user_entry:
+        apollo_apis_curl_collection.insert_one({'username': username, 'apis': {}})
+
+    if request.method == 'POST':
+        curl_request = request.POST.get('curl_request')
+        if not curl_request:
+            return JsonResponse({'status': 'error', 'message': 'No curl request provided'}, status=400)
+
+        # Update the API details for the specific user and API
+        apollo_apis_curl_collection.update_one(
+            {'username': username},
+            {'$set': {f'apis.{api_name}.curl_request': curl_request}}
+        )
+
+    # Fetch updated API details
+    user_entry = apollo_apis_curl_collection.find_one({'username': username})
+    api_details = user_entry.get('apis', {})
+
+    context = {
+        'api1_value': api_details.get('api1', {}).get('curl_request', ''),
+        'api2_value': api_details.get('api2', {}).get('curl_request', ''),
+        'api3_value': api_details.get('api3', {}).get('curl_request', ''),
+    }
+
+    return render(request, 'update_apollo_apis.html', context)
+
+
+
+def parse_curl_command(curl_command):
+    """
+    Parse a curl command and return the equivalent Python request components.
+    Supports extracting the URL, headers, and data.
+    """
+    tokens = shlex.split(curl_command)
+    url = None
+    headers = {}
+    data = None
+
+    # Iterate through tokens to extract information
+    for i, token in enumerate(tokens):
+        if token == "curl":
+            continue
+        elif token.startswith("http"):
+            url = token
+        elif token == "-H":
+            header = tokens[i + 1].split(": ", 1)
+            if len(header) == 2:
+                headers[header[0]] = header[1]
+        elif token in ("--data-raw", "-d"):
+            data = tokens[i + 1]
+
+    return url, headers, data
+
+def hit_apollo_api(request, api_name):
+    details = get_user_details(request.user)
+    username = details['username']
+    user_entry = apollo_apis_curl_collection.find_one({'username': username})
+    api_details = user_entry.get('apis', {})
+    curl_request = api_details.get(api_name, {}).get('curl_request')
+    if not curl_request:
+        return JsonResponse({'error': f"No CURL request found for {api_name}"}, status=404)
+
+    try:
+        # Parse the curl command
+        url, headers, data = parse_curl_command(curl_request)
+        print("Data: ", data)
+        if not url:
+            return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
+
+        # Perform the HTTP request
+        if data:
+            # print("Headers: ", headers)
+            response = requests.post(url, headers=headers, data=data)
+            print("R1: ", response, response.__dict__)
+        else:
+            response = requests.get(url, headers=headers)
+
+        # Return the response in JSON format
+        return JsonResponse(response.json(), safe=False)
+
+    except Exception as e:
+        return JsonResponse({'error': e}, status=500)
+    
+
+
+def replace_value_by_key(json_string, key, new_value):
+  """Replaces the value of a specific key in a JSON-like string.
+
+  Args:
+    json_string: The JSON-like string.
+    key: The key to replace.
+    new_value: The new value to replace with.
+
+  Returns:
+    The modified JSON-like string.
+  """
+
+  # Find the start index of the key-value pair
+  start_index = json_string.index(f'"{key}":')
+
+  # Determine the end index based on the value type
+  if isinstance(new_value, str):
+    end_index = json_string.find('"', start_index + len(f'"{key}":') + 1)
+    new_value_str = f'"{new_value}"'
+  elif isinstance(new_value, list):
+    new_value_str = ''
+    for i in range(len(new_value)):
+        new_value_str += '"' + new_value[i] + '"'
+        if i != len(new_value) - 1:
+            new_value_str += ','
+    new_value_str = f'[{new_value_str}]' 
+    end_index = json_string.find(']', start_index + len(f'"{key}":') + 1)
+  elif isinstance(new_value, int):
+    end_index = json_string.find(',', start_index + len(f'"{key}":') + 1) -1 
+    new_value_str = str(new_value)
+  else:
+    raise ValueError("Unsupported value type")
+
+  # Replace the old value with the new one
+  return json_string[:start_index + len(f'"{key}":')] + new_value_str + json_string[end_index+1:]
+
+def get_companies_id(request, keywords, locations, requested_page, store_companies=False):
+   
+
+    details = get_user_details(request.user)
+    username = details['username']
+    user_entry = apollo_apis_curl_collection.find_one({'username': username})
+    api_details = user_entry.get('apis', {})
+
+    curl_request = api_details.get('api1', {}).get('curl_request')
+    
+
+    if not curl_request:
+        return JsonResponse({'error': f"No CURL request found for Companies API"}, status=404)
+
+    try:
+        # Parse the curl command
+        url, headers, data = parse_curl_command(curl_request)
+        # data_json=json.loads(data)
+        # print("Data1: ", data, type(data), len(data))
+        
+        data = replace_value_by_key(data, 'organization_locations', locations)
+        data = replace_value_by_key(data, 'q_anded_organization_keyword_tags', keywords)
+        data = replace_value_by_key(data, 'page', int(requested_page))
+        data = replace_value_by_key(data, 'per_page', 25)
+        # print("modified_json_string", data)
+        # print("Data2: ", data, type(data))
+        if not url:
+            return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
+
+        # Perform the HTTP request
+        if data:
+            # print("Headers: ", headers)
+            all_companies = []
+            response = requests.post(url, headers=headers, data=str(data))
+            # print("R1: ", response, response.__dict__)
+            response_data = response.json()
+            # print("Response Data: ", response_data)
+            accounts = response_data.get('accounts', [])
+            organizations = response_data.get('organizations', [])
+
+            for account in accounts:
+                all_companies.append({
+                    'name': account.get('name'),
+                    'id': account.get('id'),
+                    'logo_url': account.get('logo_url'),
+                    'timestamp': datetime.now(),
+                    'keywords': keywords,
+                    'locations': locations
+                })
+
+            for organization in organizations:
+                all_companies.append({
+                    'name': organization.get('name'),
+                    'id': organization.get('id'),
+                    'logo_url': organization.get('logo_url'),
+                    'timestamp': datetime.now(),
+                    'keywords': keywords,
+                    'locations': locations
+                })
+
+            companies_addition_count = 0
+            if store_companies:
+                if all_companies:
+                    for company in all_companies:
+                        # Check if the company already exists in the collection to avoid duplicates
+                        result = companies_collection.update_one(
+                            {'id': company['id']},  # Match document with the same ID
+                            {
+                                '$set': {
+                                    'name': company['name'],
+                                    'logo_url': company['logo_url'],
+                                    'timestamp': datetime.now()
+                                },
+                                '$addToSet': {
+                                    'keywords': {'$each': keywords},
+                                    'locations': {'$each': locations}
+                                },
+                                '$setOnInsert': {
+                                    'is_processed': False  # Set only if the document is newly created
+                                }
+                            },
+                            upsert=True  # Create a new document if none exists
+                        )
+                        if result.modified_count == 0:
+                            companies_addition_count += 1
+                        # print(f"Modified: {result.modified_count}, Upserted: {result.upserted_id}, id: {company['id']}")
+        
+
+        # Return the response in JSON format
+        resp = response.json()
+        resp['companies_addition_count'] = companies_addition_count
+        # print("Resp: ", resp)
+
+        return resp
+
+    except Exception as e:
+        return JsonResponse({'error': response.__dict__['_content'].decode("utf-8")}, status=500)
+    
+
+def scrape_companies(request):
+    
+    try:
+        data = json.loads(request.body)
+        # new_keyword = data.get('keyword', '').strip()
+
+        # if not new_keyword:
+        #     return JsonResponse({'success': False, 'message': 'Invalid keyword'})
+        locations = data.get("locations", [])
+
+        if not locations:
+            return JsonResponse({"error": "Locations are required"})
+        # print("Hello.....")
+        # Fetch an unprocessed combination
+        combination = combination_collection.find_one({"is_processed": False})
+
+        if not combination:
+            return JsonResponse({"error": "No unprocessed combinations available"}, status=404)
+
+        keywords = combination.get("keywords", [])
+        # print("Keywords: ", keywords)
+        response = get_companies_id(request, keywords, locations, 1)
+        print("R1_response: ", response)
+        total_entries = response['pagination']['total_entries']
+        if total_entries > 125:
+            total_pages = 5
+        else:
+            total_pages = math.ceil(total_entries/25)
+        
+        resp = {'companies_addition_count': 0}
+        for i in range(1, total_pages+1):
+            response = get_companies_id(request, keywords, locations, i, True)
+            resp['companies_addition_count'] += response['companies_addition_count']
+        # Mark the combination as processed
+        combination_collection.update_one(
+            {"_id": combination["_id"]},
+            {"$set": {"is_processed": True}}
+        )
+
+        return JsonResponse({"success": resp, "keywords": keywords})
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+    
+
+
+# def select_companies(request):
+#     dataset = request.GET.get('dataset')
+#     if not dataset:
+#         return JsonResponse({'error': 'Dataset not selected'}, status=400)
+
+#     details = get_user_details(request.user)
+#     username = details['username']
+#     user_dir = os.path.join(settings.MEDIA_ROOT, username, dataset)
+
+#     with open(user_dir, 'r') as f:
+#         companies = json.load(f)
+
+#     return render(request, 'select_companies.html', {'companies': companies})
+
+
+
+
+
+def add_keyword(request):
+    if request.method == 'POST':
+        try:
+            # Parse the new keyword
+            data = json.loads(request.body)
+            new_keyword = data.get('keyword', '').strip()
+
+            if not new_keyword:
+                return JsonResponse({'success': False, 'message': 'Invalid keyword'})
+
+            # Fetch the current keywords from `and_company_keywords`
+            document = and_collection.find_one({})
+            existing_keywords = document.get('keywords', []) if document else []
+
+            # Add the new keyword to the list if it doesn't exist
+            if new_keyword in existing_keywords:
+                return JsonResponse({'success': False, 'message': 'Keyword already exists'})
+
+            existing_keywords.append(new_keyword)
+            and_collection.update_one({}, {'$set': {'keywords': existing_keywords}}, upsert=True)
+
+            # Generate all combinations of the updated keywords
+            all_combinations = []
+            for r in range(1, len(existing_keywords) + 1):
+                all_combinations.extend(combinations(existing_keywords, r))
+
+            # Update the `combinations_company_keywords` collection
+            combination_collection.delete_many({})  # Clear existing combinations
+            new_combinations = [
+                {'keywords': list(comb), 'is_processed': False}
+                for comb in all_combinations
+            ]
+            combination_collection.insert_many(new_combinations)
+
+            return JsonResponse({'success': True, 'message': 'Keyword added and combinations updated'})
+        except Exception as e:
+            print(f"Error adding keyword: {e}")
+            return JsonResponse({'success': False, 'message': 'An error occurred'})
+
+
+def get_keyword_combinations_counts(request):
+    if request.method == 'GET':
+        collection = db['combinations_company_keywords']
+        total_processed = collection.count_documents({'is_processed': True})
+        total_unprocessed = collection.count_documents({'is_processed': False})
+        return JsonResponse({
+            'processed': total_processed,
+            'unprocessed': total_unprocessed
+        })
+    
+def company_count(request):
+    total = companies_collection.count_documents({})
+    processed = companies_collection.count_documents({"is_processed": True})
+    return JsonResponse({"total": total, "processed": processed})
+
+def apollo_emails_count(request):
+    print(datetime.now().astimezone(dt.timezone.utc))
+    
+    total = apollo_emails_collection.count_documents({})
+    unlocked_emails_count = apollo_emails_collection.count_documents({"email": {"$ne": ""}})
+    return JsonResponse({"total": total, "unlocked_emails_count": unlocked_emails_count})
+
+def emails_sent_count(request):
+    total = apollo_emails_collection.count_documents({})
+    # Get current system time and convert to UTC
+    now = datetime.now()
+
+    # Calculate the start and end of today in UTC
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + dt.timedelta(days=1)
+    print("total_start", today_start, "today_end", today_end)
+    
+
+    # Count the documents
+    # today_emails_sent_count = today_entries.count()
+    today_emails_sent_count = apollo_emails_sent_history_collection.count_documents(
+    {"emails.timestamp": {"$gte": today_start, "$lt": today_end}}
+)
+    
+    unlocked_emails_count = apollo_emails_collection.count_documents({"email": {"$ne": ""}})
+    total_sent_emails = apollo_emails_sent_history_collection.count_documents({})
+    print("today_emails_sent_count, total_sent_emails", today_emails_sent_count, total_sent_emails)
+    return JsonResponse({"total": total, "unlocked_emails_count": unlocked_emails_count, "total_sent_emails": total_sent_emails, "today_emails_sent_count": today_emails_sent_count})
+
+
+def employees_count(request):
+    total = apollo_emails_collection.count_documents({})
+    return JsonResponse({"total": total})
+
+
+def get_non_processed_companies(request):
+    companies = list(companies_collection.find({"is_processed": False}, {"_id": 0, "logo_url": 0}))
+    # print("Companies: ", companies)
+    return JsonResponse({'companies': companies}, safe=False)
+
+
+def fetch_employees_data_from_apollo(_data):
+
+    organization_id, person_titles, person_locations = _data['organization_id'],  _data['person_titles'],  _data['person_locations']
+    
+
+    curl_request = _data['curl_request']
+    # print("curl_request: ", curl_request)
+
+    if not curl_request:
+        return JsonResponse({'error': f"No CURL request found for Employees API"}, status=404)
+
+    try:
+        # Parse the curl command
+        url, headers, data = parse_curl_command(curl_request)
+        
+        if not url:
+            return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
+
+        current_page = 1
+        max_page = 1
+        pages_found = False
+        employees_addition_count = 0
+        
+        while current_page <= max_page:
+            # Update the data payload
+
+            # print(f"organization_id: {type(organization_id)} {organization_id} organization_id: {type(organization_id)} person_titles: {type(person_titles)} person_locations: {type(person_locations)} current_page: {type(current_page)}")
+            data = replace_value_by_key(data, 'organization_ids', organization_id)
+            data = replace_value_by_key(data, 'person_titles', person_titles)
+            data = replace_value_by_key(data, 'person_locations', person_locations)
+            data = replace_value_by_key(data, 'page', current_page)
+
+            
+            # print("Body: ", data)
+            # Perform the HTTP request
+            response = requests.post(url, headers=headers, data=str(data))
+            # print("R2: ", response.__dict__)
+            response_data = response.json()
+
+            people = response_data.get('people', [])
+            if pages_found == False:
+                total_entries = response_data['pagination']['total_entries']
+                if total_entries > 125:
+                    max_page = 3
+                else:
+                    max_page = math.ceil(total_entries/25)
+            if not people:
+                break
+
+            
+            for person in people:
+                employee_id = person.get('id')
+                first_name = person.get('first_name')
+                last_name = person.get('last_name')
+                titles = person.get('title')
+                city = person.get('city')
+                country = person.get('country')
+                email_status = person.get('email_status')
+                is_likely_to_engage = person.get('is_likely_to_engage', False)
+                # Insert or update employee data in apollo_emails
+                result = apollo_emails_collection.update_one(
+                    {'id': employee_id},
+                    {
+                        '$set': {
+                            'first_name': first_name,
+                            'last_name': last_name,
+                            'city': city,
+                            'country': country,
+                            'timestamp': datetime.now(),
+                            'organization_id': organization_id[0],
+                            "email_status": email_status,
+                            "is_likely_to_engage": is_likely_to_engage
+                        },
+                        '$addToSet': {
+                            'titles': titles
+                        },
+                        '$setOnInsert': {
+                            'email': ""  # Keep email empty
+                        }
+                    },
+                    upsert=True
+                )
+                if result.modified_count == 0:
+                    employees_addition_count += 1
+
+            current_page += 1
+
+
+        # Mark organization as processed
+        companies_collection.update_one(
+            {'id': organization_id[0]},
+            {'$set': {'is_processed': True}}
+        )
+
+        return {"success": True, "data": {'count': employees_addition_count}}
+
+    except Exception as e:
+        traceback.print_exc()
+        return {'error': str(e)}
+    
+
+
+def fetch_employees(request):
+    data = json.loads(request.body)
+    company_info = data.get("company_id", None)
+    # print("company_id: ", company_info)
+    locations = data.get('locations', None)
+    auto = data.get("auto", False)
+    titles = data.get("job_titles", None)
+    # print("loctions, job_titles", locations, titles)
+    if titles is None or locations is None:
+        return JsonResponse({"error": 'Job Titles or Locations are Missing'})
+    details = get_user_details(request.user)
+    username = details['username']
+    user_entry = apollo_apis_curl_collection.find_one({'username': username})
+    api_details = user_entry.get('apis', {})
+
+    curl_request = api_details.get('api2', {}).get('curl_request')
+
+    _data = {
+         'person_titles': titles, 
+         'person_locations': locations,
+         'curl_request': curl_request
+    }
+
+    response = {'total_employees_fetched': 0}
+    if auto:
+        
+        company = companies_collection.find_one({"is_processed": False})
+        if not company:
+            return JsonResponse({"error": "No unprocessed companies available"}, status=404)
+        company_id = company["id"]
+        # print("company_id2", company_id)
+
+        _data['organization_id'] = [company_id]
+        
+        
+        resp = fetch_employees_data_from_apollo(_data)
+        if 'success' in resp:
+            response['total_employees_fetched'] += resp['data']['count']
+        else:
+            response['error'] = 'Partial Success'
+    else:
+        _data['organization_id'] = [company_info['id']]
+        resp = fetch_employees_data_from_apollo(_data)
+        if 'success' in resp:
+            response['total_employees_fetched'] += resp['data']['count']
+        else:
+            response['error'] = 'Could not fetch Employee Data'
+    
+
+    return JsonResponse({"data": response})
+
+
+def search_companies(request):
+    query = request.GET.get("query", "").strip()
+    if len(query) < 3:
+        return JsonResponse([], safe=False)  # Return empty list if query too short
+
+    # Fetch matching companies
+    matching_companies = companies_collection.find(
+        {"name": {"$regex": query, "$options": "i"}},
+        {"_id": 0, "id": 1, "name": 1, "logo_url": 1}
+    )
+    results = []
+
+    for company in matching_companies:
+        # Fetch the employee count for the current company
+        employee_count = apollo_emails_collection.count_documents({"organization_id": company["id"]})
+        emails_unlocked_count = apollo_emails_collection.count_documents({"organization_id": company["id"], "email": {"$ne": ""}})
+        verified_emails_count = apollo_emails_sent_history_collection.count_documents({"email_status": "verified"})
+        # emails_sent_count = apollo_emails_sent_history_collection.count_documents({})
+        already_emails_sent_count = apollo_emails_sent_history_collection.count_documents({"organization_id": company["id"]})
+
+        company["employees_count"] = employee_count
+        company["emails_unlocked_count"] = emails_unlocked_count
+        company["verified_emails_count"] = verified_emails_count
+        # company["emails_sent_count"] = emails_sent_count
+        company["already_emails_sent_count"] = already_emails_sent_count
+        
+
+        results.append(company)
+
+    # print("results: ", results)
+    return JsonResponse(results, safe=False)
+
+
+
+def fetch_employees_emails_from_apollo(_data):
+
+    employee_ids = _data['employee_ids']
+    # print("len: ", len(employee_ids), employee_ids)
+    curl_request = _data['curl_request']
+
+    if not curl_request:
+        return JsonResponse({'error': f"No CURL request found for Employees API"}, status=404)
+
+    try:
+        # Parse the curl command
+        url, headers, data = parse_curl_command(curl_request)
+        
+        if not url:
+            return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
+
+    
+        data = replace_value_by_key(data, 'entity_ids', employee_ids)
+        # print("Body2: ", data)
+        response = requests.post(url, headers=headers, data=str(data))
+        # print("R3: ", response.__dict__)
+        response_data = response.json()
+
+        contacts = response_data.get('contacts', [])
+
+
+        emails_addition_count = 0
+        for contact in contacts:
+            employee_id = contact.get('person_id')
+            employee_email = contact.get('email', '')
+            # print("employee_email", employee_email)
+            # Insert or update employee data in apollo_emails
+            result = apollo_emails_collection.update_one(
+                {'id': employee_id},
+                {
+                    '$set': {
+                        'email': employee_email,
+                
+                    }
+                },
+                upsert=True
+            )
+            if result.modified_count:
+                emails_addition_count += 1
+
+
+        return {"success": True, "data": {'count': emails_addition_count}}
+
+    except Exception as e:
+        traceback.print_exc()
+        return {'error': str(e)}
+
+def fetch_employees_emails(request):
+    data = json.loads(request.body)
+    company_info = data.get("company_id", None)
+    # print("company_id: ", company_info)
+    locations = data.get('locations', None)
+    auto = data.get("auto", False)
+    titles = data.get("job_titles", None)
+    print("loctions, job_titles", locations, titles)
+    if titles is None or locations is None:
+        return JsonResponse({"error": 'Job Titles or Locations are Missing'})
+    details = get_user_details(request.user)
+    username = details['username']
+    user_entry = apollo_apis_curl_collection.find_one({'username': username})
+    api_details = user_entry.get('apis', {})
+
+    curl_request = api_details.get('api3', {}).get('curl_request')
+
+    _data = {
+         'curl_request': curl_request
+    }
+    response = {'total_emails_fetched': 0}
+    if auto:
+        
+        employee_details = apollo_emails_collection.find_one({"email": ''})
+        # print("employee_details: ", employee_details)
+        if not employee_details:
+            return JsonResponse({"error": "All the Emails Have been fetched in our Database"})
+        company_id = employee_details["organization_id"]
+        # print("company_id: ", company_id)
+        company_details = companies_collection.find_one({"id": company_id})
+        company_name = company_details["name"]
+        # print("company_id3", company_id)
+        employee_ids = apollo_emails_collection.distinct("id", {
+            "organization_id": company_id,
+            "email": "",
+            "titles": titles[0],
+            "country": locations[0]
+        })
+
+    else:
+        employee_ids = apollo_emails_collection.distinct("id", {
+            "organization_id": company_info['id'],
+            "email": "",
+            "titles": titles,
+            "country": locations
+        })
+        company_name = company_info['name']
+    batches = math.ceil(len(employee_ids)/10)
+    # batches = 1
+    batch_size = 10
+    # batch_size = 1
+    print("batches: ", batches)
+    current_batch = 1
+    start_index = 0
+    while current_batch<=batches:
+        if current_batch == batches:
+            _data['employee_ids'] = employee_ids[start_index: ]
+        else:
+            _data['employee_ids'] = employee_ids[start_index: current_batch*batch_size]
+
+    
+        resp = fetch_employees_emails_from_apollo(_data)
+        if 'success' in resp:
+            
+            start_index = current_batch*batch_size
+            current_batch += 1
+            response['total_emails_fetched'] += resp['data']['count']
+        else:
+            response['error'] = 'Partial Success'
+            break
+    
+    response["company"] = company_name
+    return JsonResponse({"data": response})
+
+
+def send_cold_emails_by_automation_through_apollo_emails(request):
+    try:
+        data = json.loads(request.body)
+        details = get_user_details(request.user)
+        username = details['username']
+        # print("company_id: ", company_info)
+        locations = data.get('locations', None)
+        job_titles = data.get("job_titles", None)
+        target_role = data.get("target_role", None)
+        selected_template = data.get("selected_template", None)
+        resume_name = data.get("selected_resume", None)
+        print("loctions, job_titles, target_role, selected_template, resume_name", locations, job_titles, target_role, selected_template, resume_name)
+        
+        employees = apollo_emails_collection.find({
+            "titles": {"$in": job_titles},
+            "country": {"$in": locations},
+            "email": {"$exists": True, "$ne": ""},
+            # "email_status": "verified"
+            })
+
+        # Filter employees whose entries are not in apollo_emails_sent_history for the target_role
+        employee_details = None
+        for employee in employees:
+            existing_history = apollo_emails_sent_history_collection.find_one({
+                "person_id": employee["id"],
+                "organization_id": employee["organization_id"],
+                "emails.target_role": target_role,
+            })
+            if not existing_history:
+                employee_details = employee
+                break
+        if not employee_details:
+            return JsonResponse({"error": f"Unable to send Emails as None Emails are Filtered according to your input or All the Emails for your input have been already sent OR There are No Emails which are Unlocked.", "count": 0})
+        
+        receiver_first_name = employee_details["first_name"]
+        receiver_last_name = employee_details["last_name"]
+        employee_email = employee_details["email"]
+        organization_id = employee_details["organization_id"]
+        company_details = companies_collection.find_one({"id": organization_id})
+        company_name = company_details["name"]
+        
+        existing_email_history = apollo_emails_sent_history_collection.find_one(
+            {
+                "person_id": employee_details["id"],
+                "organization_id": organization_id,
+                "emails.target_role": target_role,
+            }
+        )
+        if existing_email_history:
+            return JsonResponse({"error": f"Email already sent to the {employee_email} for the target role: {target_role}" })
+
+        subject = f"[{details['first_name']} {details['last_name']}]: Exploring {target_role} Roles at {company_name}"
+        template_path = os.path.join(settings.MEDIA_ROOT, username, 'templates', selected_template)
+        with open(template_path, 'r') as f:
+            content = f.read()
+        resume_path = os.path.join(settings.MEDIA_ROOT, username, 'resumes', resume_name)
+
+        personalized_message = content.format(first_name=receiver_first_name, last_name=receiver_last_name, email=employee_email, company_name=company_name, designation=target_role)
+        send_email(details['gmail_id'], details['gmail_in_app_password'], employee_email, subject, personalized_message, resume_path)
+        time.sleep(0.25)
+        existing_entry = apollo_emails_sent_history_collection.find_one(
+            {"person_id": employee_details["id"], "organization_id": organization_id}
+        )
+
+        new_email_entry = {
+            "subject": subject,
+            "content": personalized_message,
+            "target_role": target_role,
+            "timestamp": datetime.now(),
+        }
+
+        if existing_entry:
+            # Append the new email entry to the existing emails array
+            apollo_emails_sent_history_collection.update_one(
+                {"_id": existing_entry["_id"]},
+                {"$push": {"emails": new_email_entry}}
+            )
+            print("Entry Exist, We have started pushing.....")
+        else:
+            # Create a new document if no history exists
+            email_history_entry = {
+                "person_id": employee_details["id"],
+                "receiver_email": employee_email,
+                "company": company_name,
+                "organization_id": organization_id,
+                "emails": [new_email_entry],
+            }
+            apollo_emails_sent_history_collection.insert_one(email_history_entry)
+
+        return JsonResponse({"success": f"Sent Successfully: {employee_email}"})
+    except Exception as exc:
+        traceback.print_exc()
+        return JsonResponse({"error": f"{exc}"})
+
+
+
+def send_cold_emails_by_company_through_apollo_emails(request):
+    try:
+        data = json.loads(request.body)
+        details = get_user_details(request.user)
+        username = details['username']
+        company_info = data.get("company_id", None)
+        # print("company_id: ", company_info)
+        locations = data.get('locations', None)
+        job_titles = data.get("job_titles", None)
+        target_role = data.get("target_role", None)
+        selected_template = data.get("selected_template", None)
+        resume_name = data.get("selected_resume", None)
+        print("loctions, job_titles, target_role, company_info, selected_template, resume_name", locations, job_titles, target_role, company_info, selected_template, resume_name)
+        
+        employees = apollo_emails_collection.find({
+            "organization_id": company_info["id"],
+            "titles": {"$in": job_titles},
+            "country":{"$in": locations},
+            "email": {"$exists": True, "$ne": ""},
+            # "email_status": "verified"
+            })
+
+        employee_count = apollo_emails_collection.count_documents({
+            "organization_id": company_info["id"],
+            "titles": {"$in": job_titles},
+            "country": {"$in": locations},
+            # "email_status": "verified"
+        })
+        print("employees: ", employees, employee_count)
+        # Filter employees whose entries are not in apollo_emails_sent_history for the target_role
+        filtered_employees = []
+        for employee in employees:
+            print("E: ", employee)
+            existing_history = apollo_emails_sent_history_collection.find_one({
+                "person_id": employee["id"],
+                "organization_id": employee["organization_id"],
+                "emails.target_role": target_role,
+            })
+            if not existing_history:
+                filtered_employees.append(employee)
+
+        if not filtered_employees:
+            return JsonResponse({"error": f"Unable to send Emails as None Emails are Filtered according to your input or All the Emails for your input have been already sent OR There are No Emails which are Unlocked.", "count": 0})
+        
+        count = 0
+        for employee in filtered_employees:
+            receiver_first_name = employee["first_name"]
+            receiver_last_name = employee["last_name"]
+            employee_email = employee["email"]
+            organization_id = employee["organization_id"]
+            company_name = company_info["name"]
+
+            subject = f"[{details['first_name']} {details['last_name']}]: Exploring {target_role} Roles at {company_name}"
+            template_path = os.path.join(settings.MEDIA_ROOT, username, 'templates', selected_template)
+            with open(template_path, 'r') as f:
+                content = f.read()
+            resume_path = os.path.join(settings.MEDIA_ROOT, username, 'resumes', resume_name)
+
+            personalized_message = content.format(
+                first_name=receiver_first_name,
+                last_name=receiver_last_name,
+                email=employee_email,
+                company_name=company_name,
+                designation=target_role,
+            )
+
+            send_email(details['gmail_id'], details['gmail_in_app_password'], employee_email, subject, personalized_message, resume_path)
+            time.sleep(0.25)
+            existing_entry = apollo_emails_sent_history_collection.find_one(
+                {"person_id": employee["id"], "organization_id": organization_id}
+            )
+
+
+            new_email_entry = {
+                "subject": subject,
+                "content": personalized_message,
+                "target_role": target_role,
+                "timestamp": datetime.now(),
+            }
+
+            if existing_entry:
+                # Append the new email entry to the existing emails array
+                apollo_emails_sent_history_collection.update_one(
+                    {"_id": existing_entry["_id"]},
+                    {"$push": {"emails": new_email_entry}}
+                )
+                print("Entry Exist, We have started pushing.....")
+            else:
+                # Create a new document if no history exists
+                email_history_entry = {
+                    "person_id": employee["id"],
+                    "receiver_email": employee_email,
+                    "company": company_name,
+                    "organization_id": organization_id,
+                    "emails": [new_email_entry],
+                }
+                apollo_emails_sent_history_collection.insert_one(email_history_entry)
+            count += 1
+        
+        if(count == 0):
+            return JsonResponse({"error": f"Unable to send Emails for {company_info['name']}", "count": count})
+
+        else:
+            return JsonResponse({"success": f"{count} Emails Sent Successfully", "count": count})
+    except Exception as exc:
+        traceback.print_exc()
+        return JsonResponse({"error": f"{exc}"})
+    
+
+
+
