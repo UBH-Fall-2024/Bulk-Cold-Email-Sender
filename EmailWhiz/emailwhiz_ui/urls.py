@@ -18,5 +18,14 @@ urlpatterns = [
     path('preview-template/', views.preview_template, name='preview_template'),
     path('email_history/', views.email_history, name='email_history'),
     path('add_employer_details/', views.add_employer_details, name='add_employer_details'),
+    path('update-apollo-apis/', views.update_apollo_apis, name='update_apollo_apis'),
+    path('create-companies-data/', views.create_companies_data, name='create_companies_data'),
+    path('scrape-employees-data/select-companies-dataset', views.get_companies_datasets, name='get_companies_datasets'),
+    path('scrape-employees-data/select-companies', views.select_companies, name='select_companies'),
+    
+    path('scrape-employees-data/fetch-employees', views.fetch_employees_data, name='fetch_employees_data'),
+    path('scrape-employees-data/unlock-employees-emails', views.unlock_emails, name='unlock_emails'),
+    path('apollo/send-cold-emails', views.send_cold_emails_through_apollo_emails, name='send_cold_emails_through_apollo_emails')
+    
 ]
 

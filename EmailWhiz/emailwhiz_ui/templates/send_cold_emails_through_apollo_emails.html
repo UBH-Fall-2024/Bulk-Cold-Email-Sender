@@ -1,0 +1,500 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch Employee Emails</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="container mx-auto py-10 px-6">
+        <!-- Header Section -->
+        <div class="text-center mb-8">
+          <h1 class="text-3xl font-bold">Send Cold Emails through Apollo Data</h1>
+          <p id="count-summary" class="text-sm text-gray-500">Loading Emails stats...</p>
+          <div class="flex justify-center gap-4 mb-8">
+            <div class="mx-auto bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl font-bold mb-4">Select a Resume</h2>
+                
+                <form id="resumeForm">
+                    {% csrf_token %}
+                    <ul class="space-y-4">
+                        {% for resume in resumes %}
+                            <li class="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
+                                <span>{{ resume }}</span>
+                                <input type="radio" name="selected_resume" value="{{ resume }}" required>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    
+                </form>
+            </div>
+            <div class="mx-auto bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Select an Email Template</h2>
+        
+                <form id="templateForm">
+                    {% csrf_token %}
+                    <ul class="space-y-4">
+                        {% for template in templates %}
+                            <li class="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
+                                <label class="flex items-center space-x-3">
+                                    <!-- Square radio button on the left -->
+                                    <input type="radio" name="selected_template" value="{{ template.name }}" class="form-radio text-blue-500 h-5 w-5" required>
+                                    <span class="text-gray-800 font-semibold">{{ template.name }}</span> <!-- Template name without ".txt" -->
+                                </label>
+                                <!-- Preview button on the right -->
+                                <button type="button" onclick="openModal('{{ template.content|escapejs }}')" class="text-blue-500 hover:underline">Preview</button>
+                            </li>
+                        {% endfor %}
+                    </ul>
+        
+                </form>
+            </div>
+            
+          </div>
+          
+        </div>
+      
+        <!-- Buttons Section -->
+        <div class="flex justify-center gap-4 mb-8">
+          <button
+            id="fetch-by-company-btn"
+            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded"
+            onclick="showColdEmailsByCompany()"
+          >
+            Send Cold Emails by Company
+          </button>
+          <button
+            id="fetch-automatically-btn"
+            class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded"
+            onclick="showColdEmailsAutomatically()"
+          >
+            Send Cold Emails Automatically
+          </button>
+        </div>
+        <div class="mb-6 hidden" id="employee-job-titles-class">
+            <label class="block text-sm font-medium mb-1">Employee Job Titles (comma-separated)</label>
+            <input 
+                type="text" 
+                id="employee-job-titles" 
+                class="w-full p-2 border rounded mb-2" 
+                placeholder="Enter Employee Job Titles (e.g., Senior Recruiter,Technical Recruiter)" 
+            />
+        </div>
+        <!-- Input for Locations -->
+        <div class="mb-6 hidden" id="employee-locations-class">
+            <label class="block text-sm font-medium mb-1">Locations (comma-separated)</label>
+            <input
+              type="text"
+              id="locations-input"
+              class="w-full p-2 border rounded mb-2"
+              placeholder="Enter locations (e.g., United States, India)"
+            />
+          </div>
+        <!-- Input for Target Role -->
+        <div class="mb-6 hidden" id="target-role-class">
+            <label class="block text-sm font-medium mb-1">Target Role</label>
+            <input
+              type="text"
+              id="target-role"
+              class="w-full p-2 border rounded mb-2"
+              placeholder="Enter Target Role (e.g., Software Intern)"
+            />
+          </div>
+        <!-- Fetch By Company Section -->
+        <div id="fetch-by-company-section" class="hidden">
+            <h2 class="text-xl font-bold mb-4">Send Cold Emails by Company</h2>
+            <div class="mb-4">
+              <label for="companies-select" class="block text-sm font-medium mb-2">Search Companies</label>
+              <div class="relative">
+                <input
+                  id="search-bar"
+                  type="text"
+                  placeholder="Search companies (min 3 characters)..."
+                  class="w-full p-2 border rounded mb-2"
+                  oninput="handleSearchInput()"
+                />
+                <div
+                  id="dropdown"
+                  class="absolute w-full bg-white border rounded shadow-md max-h-64 overflow-y-auto hidden"
+                >
+                  <!-- Suggestions will appear here -->
+                </div>
+              </div>
+            </div>
+        
+            <!-- Selected Companies Table -->
+            <div class="mt-6">
+              <h3 class="text-lg font-semibold mb-2">Selected Companies</h3>
+              <table class="w-full border-collapse border border-gray-300 bg-white">
+                <thead>
+                  <tr class="bg-black text-white">
+                    <th class="border border-gray-300 p-2 text-left">Logo</th>
+                    <th class="border border-gray-300 p-2 text-left">Name</th>
+                    <th class="border border-gray-300 p-2 text-left">Actions</th>
+                    <th class="border border-gray-300 p-2 text-left">Employees Count</th>
+                    <th class="border border-gray-300 p-2 text-left">Emails Unlocked</th>
+                    <th class="border border-gray-300 p-2 text-left">Verified Emails</th>
+                    <th class="border border-gray-300 p-2 text-left">Emails Already Sent</th>
+                    <th class="border border-gray-300 p-2 text-left">Emails Sent Count</th>
+                    
+                    
+                  </tr>
+                </thead>
+                <tbody id="selected-companies-table">
+                  <!-- Rows for selected companies will be dynamically added here -->
+                </tbody>
+              </table>
+            </div>
+            
+            <button
+              onclick="fetchEmailsByCompany()"
+              class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-4"
+            >
+              Start Sending
+            </button>
+            <div id="by-company-progress-section" class="hidden mt-4">
+              <p class="text-sm mb-2">Processed: <span id="by-company-processed">0</span> / <span id="by-company-total">0</span></p>
+              <p class="text-sm mb-2">Emails Sent: <span id="emails-sent-count">0</span>
+              <div class="h-2 bg-gray-200 rounded">
+                <div id="by-company-progress-bar" class="h-2 bg-blue-500 rounded" style="width: 0%;"></div>
+              </div>
+            </div>
+            <div id="by-company-logs" class="mt-4 text-sm text-gray-700 bg-blue-200"></div>
+          </div>
+<!-- Fetch Automatically Section -->
+          <div id="fetch-automatically-section" class="hidden">
+            <h2 class="text-xl font-bold mb-4">Fetch Employee Emails Automatically</h2>
+            <div class="mb-4">
+              <label for="num-auto-fetch" class="block text-sm font-medium mb-1">Number of Emails (N)</label>
+              <input
+                id="num-auto-fetch"
+                type="number"
+                class="w-full p-2 border rounded"
+                placeholder="Enter number of Emails you want to send"
+              />
+            </div>
+            <button
+              onclick="fetchEmailsAutomatically()"
+              class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+            >
+              Start Sending
+            </button>
+            <div id="auto-progress-section" class="hidden mt-4">
+              <p class="text-sm mb-2">Processed: <span id="auto-processed">0</span> / <span id="auto-total">0</span></p>
+              <p class="text-sm mb-2">New Employees Fetched: <span id="emails-sent-count">0</span>
+              <div class="h-2 bg-gray-200 rounded">
+                <div id="auto-progress-bar" class="h-2 bg-green-500 rounded" style="width: 0%;"></div>
+              </div>
+            </div>
+            <div id="auto-logs" class="mt-4 text-sm text-gray-700"></div>
+          </div>
+        </div>
+        
+        <!-- Modal for Template Preview -->
+    <div id="templateModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 hidden">
+        <div class="bg-white w-1/2 max-h-screen p-6 rounded shadow-lg overflow-hidden">
+            <h3 class="font-semibold text-gray-800 text-lg mb-4">Template Preview</h3>
+            <div id="contentPreview" class="overflow-y-auto max-h-96 p-4 bg-gray-50 rounded"></div>
+            <div class="text-right">
+                <button onclick="closeModal()" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">Close</button>
+            </div>
+        </div>
+    </div>
+        
+        
+      </div>
+      
+      <script>
+        
+      let totalEmails = 0;
+      let newEmailslFetched = 0;
+      let unlockedEmails = 0;
+      let companies = []; // All companies fetched
+let selectedCompanies = []; 
+let selectedTemplate = null;
+    let selectedResume = null;
+
+    // Event listener for template selection
+    document.querySelectorAll('input[name="selected_template"]').forEach((radio) => {
+        radio.addEventListener('change', (event) => {
+            selectedTemplate = event.target.value; // Store selected template
+            console.log('Selected Template:', selectedTemplate);
+        });
+    });
+
+    // Event listener for resume selection
+    document.querySelectorAll('input[name="selected_resume"]').forEach((radio) => {
+        radio.addEventListener('change', (event) => {
+            selectedResume = event.target.value; // Store selected resume
+            console.log('Selected Resume:', selectedResume);
+        });
+    });
+let isEmailsSent = false;
+function isfetched(){
+    return isEmailsSent;
+}
+// Selected companies for processing
+      // Function to update the count summary
+      async function updateEmailsCountSummary() {
+        const response = await fetch("/api/emails-sent-count");
+        const data = await response.json();
+        totalEmails = data.total;
+        unlockedEmails = data.unlocked_emails_count;
+        todayEmailsSentCount = data.today_emails_sent_count;
+        totalSentEmails = data.total_sent_emails;
+        document.getElementById("count-summary").textContent =
+          `Total Emails: ${totalEmails}, Unlocked Emails: ${unlockedEmails}, Total Sent Emails: ${totalSentEmails}, Today Sent Emails: ${todayEmailsSentCount}`;
+      }
+      
+      
+      
+      
+      
+      // Show Fetch by Company section
+      function showColdEmailsByCompany() {
+        isEmailsSent = false;
+        document.getElementById("fetch-by-company-section").classList.remove("hidden");
+        document.getElementById("employee-job-titles-class").classList.remove("hidden");
+        document.getElementById("employee-locations-class").classList.remove("hidden");
+        document.getElementById("target-role-class").classList.remove("hidden");
+        
+        
+        document.getElementById("fetch-automatically-section").classList.add("hidden");
+        // populateCompanySelect();
+      }
+      
+      // Show Fetch Automatically section
+      function showColdEmailsAutomatically() {
+        isEmailsSent = false;
+        document.getElementById("fetch-by-company-section").classList.add("hidden");
+        document.getElementById("employee-job-titles-class").classList.remove("hidden");
+        document.getElementById("employee-locations-class").classList.remove("hidden");
+        document.getElementById("target-role-class").classList.remove("hidden");
+         
+        document.getElementById("fetch-automatically-section").classList.remove("hidden");
+      }
+      
+    
+      // Fetch employees by selected companies
+      async function fetchEmailsByCompany() {
+        document.getElementById("by-company-logs").innerHTML = '';
+        if(isEmailsSent){
+            document.getElementById("by-company-logs").innerHTML = "Employees Already Fetched. Kindly Reload"
+            return;
+        }
+        const locationsInput = document.getElementById("locations-input").value;
+        const jobTitlesInput = document.getElementById('employee-job-titles').value;
+        const targetRoleInput = document.getElementById('target-role').value;
+        
+        if (!locationsInput || !jobTitlesInput || !selectedResume || !selectedTemplate) {
+            console.log(locationsInput, jobTitlesInput)
+            alert("Please enter valid inputs for locations and Job Titles and Resume and Template. ");
+            return;
+        }
+        const locations = locationsInput.split(",").map((loc) => loc.trim());
+        const jobTitles = jobTitlesInput.split(",").map((loc) => loc.trim());
+        
+
+       
+        // const selectedCompanies = Array.from(
+        //   document.getElementById("companies-select").selectedOptions
+        // ).map((option) => option.value);
+        const total = selectedCompanies.length;
+        let processed = 0;
+        document.getElementById("by-company-logs").innerHTML = '';
+        document.getElementById("by-company-total").textContent = total;
+        document.getElementById("by-company-progress-section").classList.remove("hidden");
+        let tempSelectedCompanies = [];
+        newEmailslFetched=0;
+        for (const company of selectedCompanies) {
+          const response = await fetch(`/api/apollo/send-cold-emails-by-company/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" ,'X-CSRFToken': '{{ csrf_token }}',},
+            body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations, target_role: targetRoleInput, selected_template: selectedTemplate, selected_resume: selectedResume }),
+          });
+          const result = await response.json();
+          processed++;
+          document.getElementById("by-company-processed").textContent = processed;
+          document.getElementById("by-company-progress-bar").style.width = `${(processed / total) * 100}%`;
+          document.getElementById("by-company-logs").innerHTML += `<span>Processed company ${company.name}: ${JSON.stringify(result)} </span><br>`;
+          let tempCompany = company;
+            // console.log(JSON.stringify(result), result["data"], typeof(result["data"]));
+        if ("success" in result){
+
+            tempCompany.emails_sent_count = result[count];
+
+            newEmailslFetched += 1;
+            tempSelectedCompanies.push(tempCompany)
+        }
+            
+            
+            isEmailsSent = true;
+        }
+        document.getElementById("emails-sent-count").textContent = newEmailslFetched;
+        selectedCompanies = tempSelectedCompanies;
+        updateSelectedCompaniesTable();
+      }
+
+//       function toggleSelection(companyId) {
+//   if (selectedCompanies.includes(companyId)) {
+//     selectedCompanies = selectedCompanies.filter((id) => id !== companyId);
+//   } else {
+//     selectedCompanies.push(companyId);
+//   }
+//   console.log("Selected Companies:", selectedCompanies);
+// }
+      
+      // Fetch employees automatically
+      async function fetchEmailsAutomatically() {
+        document.getElementById("by-company-logs").innerHTML = '';
+        if(isEmailsSent){
+            document.getElementById("by-company-logs").innerHTML = "Employees Already Fetched. Kindly Reload"
+            return;
+        }
+        const locationsInput = document.getElementById("locations-input").value;
+        const jobTitlesInput = document.getElementById('employee-job-titles').value;
+        const targetRoleInput = document.getElementById('target-role').value;
+
+        if (!locationsInput || !jobTitlesInput || !selectedResume || !selectedTemplate) {
+            alert("Please enter valid inputs for locations and Job Titles and Resume and Template.");
+            return;
+        }
+        const locations = locationsInput.split(",").map((loc) => loc.trim());
+        const jobTitles = jobTitlesInput.split(",").map((loc) => loc.trim());
+        
+        const numFetch = parseInt(document.getElementById("num-auto-fetch").value);
+        const total = numFetch;
+        let processed = 0;
+        
+        document.getElementById("auto-total").textContent = total;
+        document.getElementById("auto-progress-section").classList.remove("hidden");
+        newEmailslFetched=0;
+        for (let i = 0; i < total; i++) {
+          const response = await fetch(`/api/apollo/send-cold-emails-by-automation/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", 'X-CSRFToken': '{{ csrf_token }}', },
+            body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations, target_role: targetRoleInput, selected_template: selectedTemplate, selected_resume: selectedResume}),
+          });
+          const result = await response.json();
+          processed++;
+          document.getElementById("auto-processed").textContent = processed;
+          document.getElementById("auto-progress-bar").style.width = `${(processed / total) * 100}%`;
+          document.getElementById("auto-logs").textContent += `Response: ${JSON.stringify(result)}\n`;
+          if ("success" in result){
+            newEmailslFetched += 1;
+            isEmailsSent = true;
+            }
+          else {
+            document.getElementById("auto-logs").textContent += `Not proceeding forward, Please Reload. \n`;
+            break;
+          }
+          
+        }
+        document.getElementById("emails-sent-count").textContent = newEmailslFetched;
+      }
+// Add company to the selected list
+function addToSelected(companyId) {
+  const company = companies.find((c) => c.id === companyId);
+  if (!selectedCompanies.find((c) => c.id === companyId)) {
+    selectedCompanies.push(company);
+
+    // Update the selected companies table
+    updateSelectedCompaniesTable();
+    // console.log(selectedCompanies)
+  }
+}
+
+// Search companies only when input length is >=3
+async function handleSearchInput() {
+  const query = document.getElementById("search-bar").value.trim();
+
+  // Show suggestions only if input length is ≥3
+  if (query.length >= 3) {
+    const response = await fetch(`/api/search-companies?query=${query}`);
+    const results = await response.json();
+    companies = results; // Update the local companies list
+    console.log("Companies: ", companies)
+
+    const dropdown = document.getElementById("dropdown");
+    dropdown.innerHTML = companies
+      .map(
+        (company) => `
+        <div
+          class="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
+          onclick="addToSelected('${company.id}')"
+        >
+          <img src="${company.logo_url}" alt="${company.name}" class="w-8 h-8 rounded mr-4" />
+          <span class="text-sm">${company.name}</span>
+        </div>
+      `
+      )
+      .join("");
+
+    dropdown.classList.remove("hidden");
+  } else {
+    document.getElementById("dropdown").classList.add("hidden");
+  }
+}
+      // Remove company from the selected list
+function removeFromSelected(companyId) {
+  selectedCompanies = selectedCompanies.filter((c) => c.id !== companyId);
+
+  // Update the selected companies table
+  updateSelectedCompaniesTable();
+}
+
+      function updateSelectedCompaniesTable() {
+  const tableBody = document.getElementById("selected-companies-table");
+  console.log("selectedCompanies: ", selectedCompanies)
+  tableBody.innerHTML = selectedCompanies
+    .map(
+      (company) => `
+      <tr>
+        <td class="border border-gray-300 p-2">
+          <img src="${company.logo_url}" alt="${company.name}" class="w-10 h-10 rounded" />
+        </td>
+        <td class="border border-gray-300 p-2">${company.name}</td>
+        <td class="border border-gray-300 p-2">
+          <button
+            class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
+            onclick="removeFromSelected('${company.id}')"
+          >
+            Remove
+          </button>
+        </td>
+        
+        <td class="border border-gray-300 p-2">${(company?.employees_count || company?.employees_count == 0) ? company?.employees_count: 'N/A'}</td>
+        <td class="border border-gray-300 p-2">${(company?.emails_unlocked_count || company?.emails_unlocked_count == 0) ? company?.emails_unlocked_count: 'N/A'}</td>
+        <td class="border border-gray-300 p-2">${(company?.verified_emails_count || company?.verified_emails_count == 0) ? company?.verified_emails_count: 'N/A'}</td>
+        <td class="border border-gray-300 p-2">${(company?.already_emails_sent_count || company?.already_emails_sent_count == 0) ? company?.already_emails_sent_count: 'N/A'}</td>
+        <td class="border border-gray-300 p-2">${(company?.emails_sent_count || company?.emails_sent_count == 0) ? company?.emails_sent_count: 'N/A'}</td>
+        
+      </tr>
+    `
+    )
+    .join("");
+}
+      // Function to handle showing the modal and template content
+      function openModal(content) {
+            const contentPreview = document.getElementById("contentPreview");
+            contentPreview.innerHTML = content;
+            document.getElementById("templateModal").classList.remove("hidden");
+        }
+
+        // Function to close the modal
+        function closeModal() {
+            document.getElementById("templateModal").classList.add("hidden");
+        }
+
+      // Update counts on load
+      updateEmailsCountSummary();
+
+
+      
+
+      </script>
+      
+</body>
+</html>

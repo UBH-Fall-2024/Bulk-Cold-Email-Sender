@@ -12,51 +12,6 @@
     <div class="max-w-md w-full bg-white p-6 rounded-lg shadow-lg">
         <h1 class="text-2xl font-bold text-center mb-6">Welcome to EmailWhiz</h1>
         
-       
-        <!-- <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-lg">
-            <h2 class="text-xl font-bold mb-4">Select a Resume</h2>
-            
-            <ul class="space-y-4">
-                {% for resume in resumes %}
-                    <li class="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
-                        <span>{{ resume }}</span>
-                        <button onclick="showResumePreview('{{ username }}', '{{ resume }}')" 
-                                class="py-1 px-4 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600">
-                            Preview
-                        </button>
-                    </li>
-                {% endfor %}
-            </ul>
-        </div> -->
-        <!-- Modal for PDF Preview -->
-<!-- <div id="resumeModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center hidden">
-    <div class="bg-white w-3/4 h-3/4 rounded-lg shadow-lg overflow-hidden relative">
-        <button onclick="closeResumePreview()" 
-                class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">
-            Close
-        </button>
-        <iframe id="resumeIframe" class="w-full h-full" src="" frameborder="0"></iframe>
-    </div>
-</div> -->
-
-<!-- <script>
-    function showResumePreview(userEmail, resumeName) {
-        const modal = document.getElementById('resumeModal');
-        const iframe = document.getElementById('resumeIframe');
-        // 
-        // iframe.src = `../../emailwhiz_api/users/${userEmail}/resumes/${resumeName}`;
-        iframe.src = `/media/${userEmail}/resumes/${resumeName}`
-        
-        modal.classList.remove('hidden');
-    }
-
-    function closeResumePreview() {
-        const modal = document.getElementById('resumeModal');
-        const iframe = document.getElementById('resumeIframe');
-        iframe.src = '';  // Clear the src to stop loading
-        modal.classList.add('hidden');
-    }
-</script> -->
 
 <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-lg">
     <h2 class="text-xl font-bold mb-4">Select a Resume</h2>
