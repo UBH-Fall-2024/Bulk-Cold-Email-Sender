@@ -308,3 +308,29 @@ def fetch_employees_data(request):
 
 def unlock_emails(request):
     return render(request, 'unlock_emails.html')
+
+def send_cold_emails_through_apollo_emails(request):
+    details = get_user_details(request.user)
+    username = details['username']
+    templates_dir = os.path.join(settings.BASE_DIR, 'emailwhiz_api', 'users', username, 'templates')
+    
+    # Load template names and their content
+    templates = []
+    if os.path.exists(templates_dir):
+        for template_file in os.listdir(templates_dir):
+            if template_file.endswith('.txt'):
+                template_path = os.path.join(templates_dir, template_file)
+                with open(template_path, 'r') as f:
+                    content = f.read()
+                templates.append({
+                    'name': template_file, 
+                    'content': content
+                })
+
+    details = get_user_details(request.user)
+
+    resumes_dir = os.path.join(settings.BASE_DIR, 'emailwhiz_api', 'users', username, 'resumes')
+    print("resume_dir: ", resumes_dir, settings.BASE_DIR)
+    resumes = [f for f in os.listdir(resumes_dir) if f.endswith('.pdf')]
+    print("resumes: ", resumes)
+    return render(request, 'send_cold_emails_through_apollo_emails.html', {'templates': templates, 'resumes': resumes})

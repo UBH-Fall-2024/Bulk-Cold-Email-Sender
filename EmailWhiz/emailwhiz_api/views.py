@@ -11,6 +11,7 @@ from .forms import ResumeSelectionForm, TemplateSelectionForm
 import os
 import requests
 import shlex
+import datetime as dt
 import pytz
 from itertools import combinations
 from datetime import datetime
@@ -24,7 +25,7 @@ from django.core.mail import send_mail
 from django.core.files.storage import FileSystemStorage
 import json
 
-
+import time
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
@@ -37,6 +38,7 @@ and_collection = db['and_company_keywords']
 combination_collection = db['combinations_company_keywords']
 apollo_apis_curl_collection = db['apollo_apis_curl']
 apollo_emails_collection = db['apollo_emails']
+apollo_emails_sent_history_collection = db['apollo_emails_sent_history']
 
 proxy = {
     "http": "http://User-001:123456@192.168.56.1:808",
@@ -427,7 +429,7 @@ def send_emails(request):
             company_name = employer['company']
             message = employer['email_content']
             resume_path = employer['resume_path']
-            subject = f"[{details['first_name']}]: Exploring {designation} Roles at {company_name}"
+            subject = f"[{details['first_name']} {details['last_name']}]: Exploring {designation} Roles at {company_name}"
         
             send_email(details['gmail_id'], details['gmail_in_app_password'], receiver_email, subject, message, resume_path)
             update_email_history(details['username'], receiver_email, subject, message, company_name, designation)
@@ -798,35 +800,6 @@ def scrape_companies(request):
 
 #     return render(request, 'select_companies.html', {'companies': companies})
 
-def fetch_employees_api(request):
-    data = json.loads(request.body)
-    company_name = data.get('company')
-    employee_role = 'recruiter'  # Default role
-    details = get_user_details(request.user)
-    username = details['username']
-
-    # Load API details
-    api_details_path = os.path.join(settings.MEDIA_ROOT, username, 'apollo_apis_details.json')
-    with open(api_details_path, 'r') as f:
-        api_details = json.load(f)
-    curl_request = api_details.get('api2', {}).get('curl_request')
-
-    # Replace placeholders in the API call
-    url, headers, payload = parse_curl_command(curl_request)
-    payload = replace_value_by_key(payload, 'company_name', company_name)
-    payload = replace_value_by_key(payload, 'employee_role', employee_role)
-    print("payload: ", payload)
-    response = requests.post(url, headers=headers, data=str(payload))
-
-    # Save response data
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    company_dir = os.path.join(settings.MEDIA_ROOT, username, 'employee_details', company_name)
-    os.makedirs(company_dir, exist_ok=True)
-    json_path = os.path.join(company_dir, f'{timestamp}.json')
-    with open(json_path, 'w') as f:
-        json.dump(response.json(), f, indent=4)
-
-    return JsonResponse({'status': 'success'})
 
 
 
@@ -887,9 +860,33 @@ def company_count(request):
     return JsonResponse({"total": total, "processed": processed})
 
 def apollo_emails_count(request):
+    print(datetime.now().astimezone(dt.timezone.utc))
+    
     total = apollo_emails_collection.count_documents({})
     unlocked_emails_count = apollo_emails_collection.count_documents({"email": {"$ne": ""}})
     return JsonResponse({"total": total, "unlocked_emails_count": unlocked_emails_count})
+
+def emails_sent_count(request):
+    total = apollo_emails_collection.count_documents({})
+    # Get current system time and convert to UTC
+    now = datetime.now()
+
+    # Calculate the start and end of today in UTC
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + dt.timedelta(days=1)
+    print("total_start", today_start, "today_end", today_end)
+    
+
+    # Count the documents
+    # today_emails_sent_count = today_entries.count()
+    today_emails_sent_count = apollo_emails_sent_history_collection.count_documents(
+    {"emails.timestamp": {"$gte": today_start, "$lt": today_end}}
+)
+    
+    unlocked_emails_count = apollo_emails_collection.count_documents({"email": {"$ne": ""}})
+    total_sent_emails = apollo_emails_sent_history_collection.count_documents({})
+    print("today_emails_sent_count, total_sent_emails", today_emails_sent_count, total_sent_emails)
+    return JsonResponse({"total": total, "unlocked_emails_count": unlocked_emails_count, "total_sent_emails": total_sent_emails, "today_emails_sent_count": today_emails_sent_count})
 
 
 def employees_count(request):
@@ -961,7 +958,7 @@ def fetch_employees_data_from_apollo(_data):
                 city = person.get('city')
                 country = person.get('country')
                 email_status = person.get('email_status')
-
+                is_likely_to_engage = person.get('is_likely_to_engage', False)
                 # Insert or update employee data in apollo_emails
                 result = apollo_emails_collection.update_one(
                     {'id': employee_id},
@@ -973,7 +970,8 @@ def fetch_employees_data_from_apollo(_data):
                             'country': country,
                             'timestamp': datetime.now(),
                             'organization_id': organization_id[0],
-                            "email_status": email_status
+                            "email_status": email_status,
+                            "is_likely_to_engage": is_likely_to_engage
                         },
                         '$addToSet': {
                             'titles': titles
@@ -1072,11 +1070,20 @@ def search_companies(request):
         # Fetch the employee count for the current company
         employee_count = apollo_emails_collection.count_documents({"organization_id": company["id"]})
         emails_unlocked_count = apollo_emails_collection.count_documents({"organization_id": company["id"], "email": {"$ne": ""}})
+        verified_emails_count = apollo_emails_sent_history_collection.count_documents({"email_status": "verified"})
+        # emails_sent_count = apollo_emails_sent_history_collection.count_documents({})
+        already_emails_sent_count = apollo_emails_sent_history_collection.count_documents({"organization_id": company["id"]})
+
         company["employees_count"] = employee_count
         company["emails_unlocked_count"] = emails_unlocked_count
+        company["verified_emails_count"] = verified_emails_count
+        # company["emails_sent_count"] = emails_sent_count
+        company["already_emails_sent_count"] = already_emails_sent_count
+        
+
         results.append(company)
 
-
+    # print("results: ", results)
     return JsonResponse(results, safe=False)
 
 
@@ -1206,3 +1213,212 @@ def fetch_employees_emails(request):
     
     response["company"] = company_name
     return JsonResponse({"data": response})
+
+
+def send_cold_emails_by_automation_through_apollo_emails(request):
+    try:
+        data = json.loads(request.body)
+        details = get_user_details(request.user)
+        username = details['username']
+        # print("company_id: ", company_info)
+        locations = data.get('locations', None)
+        job_titles = data.get("job_titles", None)
+        target_role = data.get("target_role", None)
+        selected_template = data.get("selected_template", None)
+        resume_name = data.get("selected_resume", None)
+        print("loctions, job_titles, target_role, selected_template, resume_name", locations, job_titles, target_role, selected_template, resume_name)
+        
+        employees = apollo_emails_collection.find({
+            "titles": {"$in": job_titles},
+            "country": {"$in": locations},
+            "email": {"$exists": True, "$ne": ""},
+            # "email_status": "verified"
+            })
+
+        # Filter employees whose entries are not in apollo_emails_sent_history for the target_role
+        employee_details = None
+        for employee in employees:
+            existing_history = apollo_emails_sent_history_collection.find_one({
+                "person_id": employee["id"],
+                "organization_id": employee["organization_id"],
+                "emails.target_role": target_role,
+            })
+            if not existing_history:
+                employee_details = employee
+                break
+        if not employee_details:
+            return JsonResponse({"error": f"Unable to send Emails as None Emails are Filtered according to your input or All the Emails for your input have been already sent OR There are No Emails which are Unlocked.", "count": 0})
+        
+        receiver_first_name = employee_details["first_name"]
+        receiver_last_name = employee_details["last_name"]
+        employee_email = employee_details["email"]
+        organization_id = employee_details["organization_id"]
+        company_details = companies_collection.find_one({"id": organization_id})
+        company_name = company_details["name"]
+        
+        existing_email_history = apollo_emails_sent_history_collection.find_one(
+            {
+                "person_id": employee_details["id"],
+                "organization_id": organization_id,
+                "emails.target_role": target_role,
+            }
+        )
+        if existing_email_history:
+            return JsonResponse({"error": f"Email already sent to the {employee_email} for the target role: {target_role}" })
+
+        subject = f"[{details['first_name']} {details['last_name']}]: Exploring {target_role} Roles at {company_name}"
+        template_path = os.path.join(settings.MEDIA_ROOT, username, 'templates', selected_template)
+        with open(template_path, 'r') as f:
+            content = f.read()
+        resume_path = os.path.join(settings.MEDIA_ROOT, username, 'resumes', resume_name)
+
+        personalized_message = content.format(first_name=receiver_first_name, last_name=receiver_last_name, email=employee_email, company_name=company_name, designation=target_role)
+        send_email(details['gmail_id'], details['gmail_in_app_password'], employee_email, subject, personalized_message, resume_path)
+        time.sleep(0.25)
+        existing_entry = apollo_emails_sent_history_collection.find_one(
+            {"person_id": employee_details["id"], "organization_id": organization_id}
+        )
+
+        new_email_entry = {
+            "subject": subject,
+            "content": personalized_message,
+            "target_role": target_role,
+            "timestamp": datetime.now(),
+        }
+
+        if existing_entry:
+            # Append the new email entry to the existing emails array
+            apollo_emails_sent_history_collection.update_one(
+                {"_id": existing_entry["_id"]},
+                {"$push": {"emails": new_email_entry}}
+            )
+            print("Entry Exist, We have started pushing.....")
+        else:
+            # Create a new document if no history exists
+            email_history_entry = {
+                "person_id": employee_details["id"],
+                "receiver_email": employee_email,
+                "company": company_name,
+                "organization_id": organization_id,
+                "emails": [new_email_entry],
+            }
+            apollo_emails_sent_history_collection.insert_one(email_history_entry)
+
+        return JsonResponse({"success": f"Sent Successfully: {employee_email}"})
+    except Exception as exc:
+        traceback.print_exc()
+        return JsonResponse({"error": f"{exc}"})
+
+
+
+def send_cold_emails_by_company_through_apollo_emails(request):
+    try:
+        data = json.loads(request.body)
+        details = get_user_details(request.user)
+        username = details['username']
+        company_info = data.get("company_id", None)
+        # print("company_id: ", company_info)
+        locations = data.get('locations', None)
+        job_titles = data.get("job_titles", None)
+        target_role = data.get("target_role", None)
+        selected_template = data.get("selected_template", None)
+        resume_name = data.get("selected_resume", None)
+        print("loctions, job_titles, target_role, company_info, selected_template, resume_name", locations, job_titles, target_role, company_info, selected_template, resume_name)
+        
+        employees = apollo_emails_collection.find({
+            "organization_id": company_info["id"],
+            "titles": {"$in": job_titles},
+            "country":{"$in": locations},
+            "email": {"$exists": True, "$ne": ""},
+            # "email_status": "verified"
+            })
+
+        employee_count = apollo_emails_collection.count_documents({
+            "organization_id": company_info["id"],
+            "titles": {"$in": job_titles},
+            "country": {"$in": locations},
+            # "email_status": "verified"
+        })
+        print("employees: ", employees, employee_count)
+        # Filter employees whose entries are not in apollo_emails_sent_history for the target_role
+        filtered_employees = []
+        for employee in employees:
+            print("E: ", employee)
+            existing_history = apollo_emails_sent_history_collection.find_one({
+                "person_id": employee["id"],
+                "organization_id": employee["organization_id"],
+                "emails.target_role": target_role,
+            })
+            if not existing_history:
+                filtered_employees.append(employee)
+
+        if not filtered_employees:
+            return JsonResponse({"error": f"Unable to send Emails as None Emails are Filtered according to your input or All the Emails for your input have been already sent OR There are No Emails which are Unlocked.", "count": 0})
+        
+        count = 0
+        for employee in filtered_employees:
+            receiver_first_name = employee["first_name"]
+            receiver_last_name = employee["last_name"]
+            employee_email = employee["email"]
+            organization_id = employee["organization_id"]
+            company_name = company_info["name"]
+
+            subject = f"[{details['first_name']} {details['last_name']}]: Exploring {target_role} Roles at {company_name}"
+            template_path = os.path.join(settings.MEDIA_ROOT, username, 'templates', selected_template)
+            with open(template_path, 'r') as f:
+                content = f.read()
+            resume_path = os.path.join(settings.MEDIA_ROOT, username, 'resumes', resume_name)
+
+            personalized_message = content.format(
+                first_name=receiver_first_name,
+                last_name=receiver_last_name,
+                email=employee_email,
+                company_name=company_name,
+                designation=target_role,
+            )
+
+            send_email(details['gmail_id'], details['gmail_in_app_password'], employee_email, subject, personalized_message, resume_path)
+            time.sleep(0.25)
+            existing_entry = apollo_emails_sent_history_collection.find_one(
+                {"person_id": employee["id"], "organization_id": organization_id}
+            )
+
+
+            new_email_entry = {
+                "subject": subject,
+                "content": personalized_message,
+                "target_role": target_role,
+                "timestamp": datetime.now(),
+            }
+
+            if existing_entry:
+                # Append the new email entry to the existing emails array
+                apollo_emails_sent_history_collection.update_one(
+                    {"_id": existing_entry["_id"]},
+                    {"$push": {"emails": new_email_entry}}
+                )
+                print("Entry Exist, We have started pushing.....")
+            else:
+                # Create a new document if no history exists
+                email_history_entry = {
+                    "person_id": employee["id"],
+                    "receiver_email": employee_email,
+                    "company": company_name,
+                    "organization_id": organization_id,
+                    "emails": [new_email_entry],
+                }
+                apollo_emails_sent_history_collection.insert_one(email_history_entry)
+            count += 1
+        
+        if(count == 0):
+            return JsonResponse({"error": f"Unable to send Emails for {company_info['name']}", "count": count})
+
+        else:
+            return JsonResponse({"success": f"{count} Emails Sent Successfully", "count": count})
+    except Exception as exc:
+        traceback.print_exc()
+        return JsonResponse({"error": f"{exc}"})
+    
+
+
+

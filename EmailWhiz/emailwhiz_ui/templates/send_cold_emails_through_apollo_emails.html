@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,9 +11,48 @@
     <div class="container mx-auto py-10 px-6">
         <!-- Header Section -->
         <div class="text-center mb-8">
-          <h1 class="text-3xl font-bold">Fetch Employee Emails</h1>
-          <p id="count-summary" class="text-sm text-gray-500">Loading Email stats...</p>
-          
+          <h1 class="text-3xl font-bold">Send Cold Emails through Apollo Data</h1>
+          <p id="count-summary" class="text-sm text-gray-500">Loading Emails stats...</p>
+          <div class="flex justify-center gap-4 mb-8">
+            <div class="mx-auto bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl font-bold mb-4">Select a Resume</h2>
+                
+                <form id="resumeForm">
+                    {% csrf_token %}
+                    <ul class="space-y-4">
+                        {% for resume in resumes %}
+                            <li class="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
+                                <span>{{ resume }}</span>
+                                <input type="radio" name="selected_resume" value="{{ resume }}" required>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    
+                </form>
+            </div>
+            <div class="mx-auto bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Select an Email Template</h2>
+        
+                <form id="templateForm">
+                    {% csrf_token %}
+                    <ul class="space-y-4">
+                        {% for template in templates %}
+                            <li class="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
+                                <label class="flex items-center space-x-3">
+                                    <!-- Square radio button on the left -->
+                                    <input type="radio" name="selected_template" value="{{ template.name }}" class="form-radio text-blue-500 h-5 w-5" required>
+                                    <span class="text-gray-800 font-semibold">{{ template.name }}</span> <!-- Template name without ".txt" -->
+                                </label>
+                                <!-- Preview button on the right -->
+                                <button type="button" onclick="openModal('{{ template.content|escapejs }}')" class="text-blue-500 hover:underline">Preview</button>
+                            </li>
+                        {% endfor %}
+                    </ul>
+        
+                </form>
+            </div>
+            
+          </div>
           
         </div>
       
@@ -21,16 +61,16 @@
           <button
             id="fetch-by-company-btn"
             class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded"
-            onclick="showFetchByCompany()"
+            onclick="showColdEmailsByCompany()"
           >
-            Fetch Employee Emails by Company
+            Send Cold Emails by Company
           </button>
           <button
             id="fetch-automatically-btn"
             class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded"
-            onclick="showFetchAutomatically()"
+            onclick="showColdEmailsAutomatically()"
           >
-            Fetch Employee Data Automatically
+            Send Cold Emails Automatically
           </button>
         </div>
         <div class="mb-6 hidden" id="employee-job-titles-class">
@@ -52,9 +92,19 @@
               placeholder="Enter locations (e.g., United States, India)"
             />
           </div>
+        <!-- Input for Target Role -->
+        <div class="mb-6 hidden" id="target-role-class">
+            <label class="block text-sm font-medium mb-1">Target Role</label>
+            <input
+              type="text"
+              id="target-role"
+              class="w-full p-2 border rounded mb-2"
+              placeholder="Enter Target Role (e.g., Software Intern)"
+            />
+          </div>
         <!-- Fetch By Company Section -->
         <div id="fetch-by-company-section" class="hidden">
-            <h2 class="text-xl font-bold mb-4">Fetch Employee Data by Company</h2>
+            <h2 class="text-xl font-bold mb-4">Send Cold Emails by Company</h2>
             <div class="mb-4">
               <label for="companies-select" class="block text-sm font-medium mb-2">Search Companies</label>
               <div class="relative">
@@ -85,6 +135,11 @@
                     <th class="border border-gray-300 p-2 text-left">Actions</th>
                     <th class="border border-gray-300 p-2 text-left">Employees Count</th>
                     <th class="border border-gray-300 p-2 text-left">Emails Unlocked</th>
+                    <th class="border border-gray-300 p-2 text-left">Verified Emails</th>
+                    <th class="border border-gray-300 p-2 text-left">Emails Already Sent</th>
+                    <th class="border border-gray-300 p-2 text-left">Emails Sent Count</th>
+                    
+                    
                   </tr>
                 </thead>
                 <tbody id="selected-companies-table">
@@ -97,11 +152,11 @@
               onclick="fetchEmailsByCompany()"
               class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-4"
             >
-              Start Fetching
+              Start Sending
             </button>
             <div id="by-company-progress-section" class="hidden mt-4">
               <p class="text-sm mb-2">Processed: <span id="by-company-processed">0</span> / <span id="by-company-total">0</span></p>
-              <p class="text-sm mb-2">New Emails Fetched: <span id="new-emails-fetched-count">0</span>
+              <p class="text-sm mb-2">Emails Sent: <span id="emails-sent-count">0</span>
               <div class="h-2 bg-gray-200 rounded">
                 <div id="by-company-progress-bar" class="h-2 bg-blue-500 rounded" style="width: 0%;"></div>
               </div>
@@ -112,23 +167,23 @@
           <div id="fetch-automatically-section" class="hidden">
             <h2 class="text-xl font-bold mb-4">Fetch Employee Emails Automatically</h2>
             <div class="mb-4">
-              <label for="num-auto-fetch" class="block text-sm font-medium mb-1">Number of Companies (X)</label>
+              <label for="num-auto-fetch" class="block text-sm font-medium mb-1">Number of Emails (N)</label>
               <input
                 id="num-auto-fetch"
                 type="number"
                 class="w-full p-2 border rounded"
-                placeholder="Enter number of companies"
+                placeholder="Enter number of Emails you want to send"
               />
             </div>
             <button
               onclick="fetchEmailsAutomatically()"
               class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
             >
-              Start Fetching
+              Start Sending
             </button>
             <div id="auto-progress-section" class="hidden mt-4">
               <p class="text-sm mb-2">Processed: <span id="auto-processed">0</span> / <span id="auto-total">0</span></p>
-              <p class="text-sm mb-2">New Employees Fetched: <span id="new-emails-fetched-count">0</span>
+              <p class="text-sm mb-2">New Employees Fetched: <span id="emails-sent-count">0</span>
               <div class="h-2 bg-gray-200 rounded">
                 <div id="auto-progress-bar" class="h-2 bg-green-500 rounded" style="width: 0%;"></div>
               </div>
@@ -136,7 +191,17 @@
             <div id="auto-logs" class="mt-4 text-sm text-gray-700"></div>
           </div>
         </div>
-      
+        
+        <!-- Modal for Template Preview -->
+    <div id="templateModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 hidden">
+        <div class="bg-white w-1/2 max-h-screen p-6 rounded shadow-lg overflow-hidden">
+            <h3 class="font-semibold text-gray-800 text-lg mb-4">Template Preview</h3>
+            <div id="contentPreview" class="overflow-y-auto max-h-96 p-4 bg-gray-50 rounded"></div>
+            <div class="text-right">
+                <button onclick="closeModal()" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">Close</button>
+            </div>
+        </div>
+    </div>
         
         
       </div>
@@ -148,41 +213,65 @@
       let unlockedEmails = 0;
       let companies = []; // All companies fetched
 let selectedCompanies = []; 
+let selectedTemplate = null;
+    let selectedResume = null;
 
-let isEmailsfetched = false;
+    // Event listener for template selection
+    document.querySelectorAll('input[name="selected_template"]').forEach((radio) => {
+        radio.addEventListener('change', (event) => {
+            selectedTemplate = event.target.value; // Store selected template
+            console.log('Selected Template:', selectedTemplate);
+        });
+    });
+
+    // Event listener for resume selection
+    document.querySelectorAll('input[name="selected_resume"]').forEach((radio) => {
+        radio.addEventListener('change', (event) => {
+            selectedResume = event.target.value; // Store selected resume
+            console.log('Selected Resume:', selectedResume);
+        });
+    });
+let isEmailsSent = false;
 function isfetched(){
-    return isEmailsfetched;
+    return isEmailsSent;
 }
 // Selected companies for processing
       // Function to update the count summary
       async function updateEmailsCountSummary() {
-        const response = await fetch("/api/apollo-emails-count");
+        const response = await fetch("/api/emails-sent-count");
         const data = await response.json();
         totalEmails = data.total;
         unlockedEmails = data.unlocked_emails_count;
+        todayEmailsSentCount = data.today_emails_sent_count;
+        totalSentEmails = data.total_sent_emails;
         document.getElementById("count-summary").textContent =
-          `Emails Unlocked: ${unlockedEmails}, Emails Remaining: ${totalEmails - unlockedEmails}, Total Emails: ${totalEmails}`;
+          `Total Emails: ${totalEmails}, Unlocked Emails: ${unlockedEmails}, Total Sent Emails: ${totalSentEmails}, Today Sent Emails: ${todayEmailsSentCount}`;
       }
       
       
       
+      
+      
       // Show Fetch by Company section
-      function showFetchByCompany() {
-        isEmailsfetched = false;
+      function showColdEmailsByCompany() {
+        isEmailsSent = false;
         document.getElementById("fetch-by-company-section").classList.remove("hidden");
         document.getElementById("employee-job-titles-class").classList.remove("hidden");
         document.getElementById("employee-locations-class").classList.remove("hidden");
+        document.getElementById("target-role-class").classList.remove("hidden");
+        
         
         document.getElementById("fetch-automatically-section").classList.add("hidden");
         // populateCompanySelect();
       }
       
       // Show Fetch Automatically section
-      function showFetchAutomatically() {
-        isEmailsfetched = false;
+      function showColdEmailsAutomatically() {
+        isEmailsSent = false;
         document.getElementById("fetch-by-company-section").classList.add("hidden");
         document.getElementById("employee-job-titles-class").classList.remove("hidden");
         document.getElementById("employee-locations-class").classList.remove("hidden");
+        document.getElementById("target-role-class").classList.remove("hidden");
          
         document.getElementById("fetch-automatically-section").classList.remove("hidden");
       }
@@ -190,15 +279,18 @@ function isfetched(){
     
       // Fetch employees by selected companies
       async function fetchEmailsByCompany() {
-        if(isEmailsfetched){
+        document.getElementById("by-company-logs").innerHTML = '';
+        if(isEmailsSent){
             document.getElementById("by-company-logs").innerHTML = "Employees Already Fetched. Kindly Reload"
             return;
         }
         const locationsInput = document.getElementById("locations-input").value;
         const jobTitlesInput = document.getElementById('employee-job-titles').value;
-        if (!locationsInput || !jobTitlesInput) {
+        const targetRoleInput = document.getElementById('target-role').value;
+        
+        if (!locationsInput || !jobTitlesInput || !selectedResume || !selectedTemplate) {
             console.log(locationsInput, jobTitlesInput)
-            alert("Please enter valid inputs for locations and Job Titles. ");
+            alert("Please enter valid inputs for locations and Job Titles and Resume and Template. ");
             return;
         }
         const locations = locationsInput.split(",").map((loc) => loc.trim());
@@ -217,10 +309,10 @@ function isfetched(){
         let tempSelectedCompanies = [];
         newEmailslFetched=0;
         for (const company of selectedCompanies) {
-          const response = await fetch(`/api/fetch-employees-emails/`, {
+          const response = await fetch(`/api/apollo/send-cold-emails-by-company/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" ,'X-CSRFToken': '{{ csrf_token }}',},
-            body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations }),
+            body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations, target_role: targetRoleInput, selected_template: selectedTemplate, selected_resume: selectedResume }),
           });
           const result = await response.json();
           processed++;
@@ -229,13 +321,18 @@ function isfetched(){
           document.getElementById("by-company-logs").innerHTML += `<span>Processed company ${company.name}: ${JSON.stringify(result)} </span><br>`;
           let tempCompany = company;
             // console.log(JSON.stringify(result), result["data"], typeof(result["data"]));
-          tempCompany.employees_count = result["data"]["total_emails_fetched"];
-          
-          newEmailslFetched += result["data"]["total_emails_fetched"];
-          tempSelectedCompanies.push(tempCompany)
-          isEmailsfetched = true;
+        if ("success" in result){
+
+            tempCompany.emails_sent_count = result[count];
+
+            newEmailslFetched += 1;
+            tempSelectedCompanies.push(tempCompany)
         }
-        document.getElementById("new-emails-fetched-count").textContent = newEmailslFetched;
+            
+            
+            isEmailsSent = true;
+        }
+        document.getElementById("emails-sent-count").textContent = newEmailslFetched;
         selectedCompanies = tempSelectedCompanies;
         updateSelectedCompaniesTable();
       }
@@ -251,14 +348,17 @@ function isfetched(){
       
       // Fetch employees automatically
       async function fetchEmailsAutomatically() {
-        if(isEmailsfetched){
+        document.getElementById("by-company-logs").innerHTML = '';
+        if(isEmailsSent){
             document.getElementById("by-company-logs").innerHTML = "Employees Already Fetched. Kindly Reload"
             return;
         }
         const locationsInput = document.getElementById("locations-input").value;
         const jobTitlesInput = document.getElementById('employee-job-titles').value;
-        if (!locationsInput || !jobTitlesInput) {
-            alert("Please enter valid inputs for locations and Job Titles.");
+        const targetRoleInput = document.getElementById('target-role').value;
+
+        if (!locationsInput || !jobTitlesInput || !selectedResume || !selectedTemplate) {
+            alert("Please enter valid inputs for locations and Job Titles and Resume and Template.");
             return;
         }
         const locations = locationsInput.split(",").map((loc) => loc.trim());
@@ -272,20 +372,27 @@ function isfetched(){
         document.getElementById("auto-progress-section").classList.remove("hidden");
         newEmailslFetched=0;
         for (let i = 0; i < total; i++) {
-          const response = await fetch(`/api/fetch-employees-emails/`, {
+          const response = await fetch(`/api/apollo/send-cold-emails-by-automation/`, {
             method: "POST",
             headers: { "Content-Type": "application/json", 'X-CSRFToken': '{{ csrf_token }}', },
-            body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations }),
+            body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations, target_role: targetRoleInput, selected_template: selectedTemplate, selected_resume: selectedResume}),
           });
           const result = await response.json();
           processed++;
           document.getElementById("auto-processed").textContent = processed;
           document.getElementById("auto-progress-bar").style.width = `${(processed / total) * 100}%`;
-          document.getElementById("auto-logs").textContent += `Processed automatically: ${JSON.stringify(result)}\n`;
-          newEmailslFetched += result["data"]["total_emails_fetched"];
-          isEmailsfetched = true;
+          document.getElementById("auto-logs").textContent += `Response: ${JSON.stringify(result)}\n`;
+          if ("success" in result){
+            newEmailslFetched += 1;
+            isEmailsSent = true;
+            }
+          else {
+            document.getElementById("auto-logs").textContent += `Not proceeding forward, Please Reload. \n`;
+            break;
+          }
+          
         }
-        document.getElementById("new-emails-fetched-count").textContent = newEmailslFetched;
+        document.getElementById("emails-sent-count").textContent = newEmailslFetched;
       }
 // Add company to the selected list
 function addToSelected(companyId) {
@@ -357,14 +464,30 @@ function removeFromSelected(companyId) {
             Remove
           </button>
         </td>
+        
         <td class="border border-gray-300 p-2">${(company?.employees_count || company?.employees_count == 0) ? company?.employees_count: 'N/A'}</td>
         <td class="border border-gray-300 p-2">${(company?.emails_unlocked_count || company?.emails_unlocked_count == 0) ? company?.emails_unlocked_count: 'N/A'}</td>
+        <td class="border border-gray-300 p-2">${(company?.verified_emails_count || company?.verified_emails_count == 0) ? company?.verified_emails_count: 'N/A'}</td>
+        <td class="border border-gray-300 p-2">${(company?.already_emails_sent_count || company?.already_emails_sent_count == 0) ? company?.already_emails_sent_count: 'N/A'}</td>
+        <td class="border border-gray-300 p-2">${(company?.emails_sent_count || company?.emails_sent_count == 0) ? company?.emails_sent_count: 'N/A'}</td>
+        
       </tr>
     `
     )
     .join("");
 }
-      
+      // Function to handle showing the modal and template content
+      function openModal(content) {
+            const contentPreview = document.getElementById("contentPreview");
+            contentPreview.innerHTML = content;
+            document.getElementById("templateModal").classList.remove("hidden");
+        }
+
+        // Function to close the modal
+        function closeModal() {
+            document.getElementById("templateModal").classList.add("hidden");
+        }
+
       // Update counts on load
       updateEmailsCountSummary();
 
