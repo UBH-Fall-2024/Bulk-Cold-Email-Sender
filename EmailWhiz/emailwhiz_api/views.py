@@ -1052,7 +1052,7 @@ def fetch_employees(request):
         else:
             response['error'] = 'Could not fetch Employee Data'
     
-
+    time.sleep(0.25)
     return JsonResponse({"data": response})
 
 
@@ -1204,6 +1204,7 @@ def fetch_employees_emails(request):
 
     
         resp = fetch_employees_emails_from_apollo(_data)
+        time.sleep(0.25)
         if 'success' in resp:
             
             start_index = current_batch*batch_size
