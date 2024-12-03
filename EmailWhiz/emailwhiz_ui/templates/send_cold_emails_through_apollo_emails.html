@@ -387,10 +387,10 @@ let selectedTemplate = null;
       // Fetch employees automatically
       async function fetchEmailsAutomatically() {
         document.getElementById("by-company-logs").innerHTML = '';
-        // if(isEmailsSent){
-        //     document.getElementById("by-company-logs").innerHTML = "Employees Already Fetched. Kindly Reload"
-        //     return;
-        // }
+        if(isEmailsSent){
+            document.getElementById("by-company-logs").innerHTML = "Employees Already Fetched. Kindly Reload"
+            return;
+        }
         const locationsInput = document.getElementById("locations-input").value;
         const jobTitlesInput = document.getElementById('employee-job-titles').value;
         const targetRoleInput = document.getElementById('target-role').value;
