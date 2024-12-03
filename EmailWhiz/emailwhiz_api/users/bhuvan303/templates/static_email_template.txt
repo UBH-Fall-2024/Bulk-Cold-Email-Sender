@@ -1,0 +1,29 @@
+<html>
+<head></head>
+<body>
+    <p>Hi <span style="color: #0073e6;">{first_name}</span>,</p>
+
+    <p>I hope this email finds you well. My name is <strong style="color: #333399;">Bhuvan Thirwani</strong>, and I am currently pursuing a <strong>Masters of Science in Computer Science</strong> at the <span style="color: #0073e6;">University at Buffalo, State University of New York</span>. I am reaching out to express my strong interest in a <strong style="color: #333399;">{designation}</strong> opportunity at <strong style="color: #0073e6;">{company_name}</strong> for <strong style="color: #333399;">Summer 2025</strong>.</p>
+
+    <p>As a <strong>Full Stack Developer</strong> with more than 2 years of professional experience, I have honed my skills in <span style="color: #006600;">AWS</span>, <span style="color: #006600;">Python</span>, <span style="color: #006600;">Java</span>, <span style="color: #006600;">NodeJs</span>, <span style="color: #006600;">SQL</span>, <span style="color: #006600;">NoSQL,</span> <span style="color: #006600;">Docker</span>, <span style="color: #006600;">Kubernetes</span>, <span style="color: #006600;">React</span> and <span style="color: #006600;">Javascript</span>. In my previous role, I successfully built a <strong>Manufacturing Application</strong> that automated processes within a manufacturing plant, showcasing my ability to deliver impactful solutions.</p>
+
+    <p><strong style="color: #333399;">Key Achievements of My Background:</strong></p>
+    <ul>
+        <li><strong style="color: #333399;">Research Contribution:</strong> Authored a paper in AI, demonstrating analytical and innovative thinking.</li>
+        <li><strong style="color: #333399;">Coding:</strong> Strong foundation in Data Structures & Algorithms. 69th & 64th Rank worldwide in two coding competitions.</li>
+    </ul>
+
+    <p><strong style="color: #0073e6;">{company_name}</strong> stands out to me because of its reputation for <strong style="color: #333399;">innovation</strong> and its commitment to pushing the boundaries of <strong style="color: #333399;">technology</strong>. I'm eager to contribute to your team's success by leveraging my diverse skill set and passion for <strong style="color: #333399;">problem-solving</strong>.</p>
+
+    <p>I have attached my resume for your review, and I'd love the opportunity to chat further about how my background aligns with the needs of your team. Please let me know if there's a convenient time for you to connect.</p>
+
+    <p>Thank you for your time and consideration, <span style="color: #0073e6;">{first_name}</span>. Looking forward to hearing from you soon.</p>
+
+    <p>Best regards,</p>
+
+    <p><strong style="color: #333399;">Bhuvan Thirwani</strong><br>
+    +1 716-228-4256<br>
+    <a href="mailto:bhuvanth@buffalo.edu" style="color: #0073e6;">bhuvanth@buffalo.edu</a><br>
+    <a href="https://www.linkedin.com/in/dev-hax-codes/" style="color: #0073e6;">LinkedIn Profile</a></p>
+</body>
+</html>

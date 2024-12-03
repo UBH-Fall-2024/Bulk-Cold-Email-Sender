@@ -51,6 +51,34 @@
         
                 </form>
             </div>
+            <div class="mx-auto bg-white p-6 rounded-lg shadow-lg">
+              <h2 class="text-2xl font-bold text-gray-800 mb-4">Select a Subject</h2>
+
+              <!-- Dropdown -->
+              <div class="mb-4">
+                  <label for="subjectDropdown" class="block text-sm font-medium text-gray-700 mb-2">
+                      Subjects:
+                  </label>
+                  <select
+                      id="subjectDropdown"
+                      onclick="setSelectedSubject(event)"
+                      class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  >
+                      <option value="" selected disabled>Select a subject</option>
+                  </select>
+              </div>
+
+              <!-- Preview Button -->
+              <div>
+                  <button
+                      type="button"
+                      onclick="previewSubject()"
+                      class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600"
+                  >
+                      Preview Subject
+                  </button>
+              </div>
+          </div>
             
           </div>
           
@@ -215,6 +243,8 @@
 let selectedCompanies = []; 
 let selectedTemplate = null;
     let selectedResume = null;
+    let subjects = [];
+    let selectedSubject = null;
 
     // Event listener for template selection
     document.querySelectorAll('input[name="selected_template"]').forEach((radio) => {
@@ -231,10 +261,18 @@ let selectedTemplate = null;
             console.log('Selected Resume:', selectedResume);
         });
     });
-let isEmailsSent = false;
-function isfetched(){
-    return isEmailsSent;
-}
+    let isEmailsSent = false;
+    function isfetched(){
+        return isEmailsSent;
+    }
+
+    async function setSelectedSubject(event){
+      console.log("Event: ", event, event.target.value);
+      if(event.target.value){
+      selectedSubject = event.target.value;
+
+      }
+    }
 // Selected companies for processing
       // Function to update the count summary
       async function updateEmailsCountSummary() {
@@ -288,9 +326,9 @@ function isfetched(){
         const jobTitlesInput = document.getElementById('employee-job-titles').value;
         const targetRoleInput = document.getElementById('target-role').value;
         
-        if (!locationsInput || !jobTitlesInput || !selectedResume || !selectedTemplate) {
+        if (!locationsInput || !jobTitlesInput || !selectedResume || !selectedTemplate || !selectedSubject) {
             console.log(locationsInput, jobTitlesInput)
-            alert("Please enter valid inputs for locations and Job Titles and Resume and Template. ");
+            alert("Please enter valid inputs for locations or Job Titles or Resume or Email Template or Email Subject ");
             return;
         }
         const locations = locationsInput.split(",").map((loc) => loc.trim());
@@ -312,7 +350,7 @@ function isfetched(){
           const response = await fetch(`/api/apollo/send-cold-emails-by-company/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" ,'X-CSRFToken': '{{ csrf_token }}',},
-            body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations, target_role: targetRoleInput, selected_template: selectedTemplate, selected_resume: selectedResume }),
+            body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations, target_role: targetRoleInput, selected_template: selectedTemplate, selected_resume: selectedResume, selected_subject: selectedSubject }),
           });
           const result = await response.json();
           processed++;
@@ -357,8 +395,8 @@ function isfetched(){
         const jobTitlesInput = document.getElementById('employee-job-titles').value;
         const targetRoleInput = document.getElementById('target-role').value;
 
-        if (!locationsInput || !jobTitlesInput || !selectedResume || !selectedTemplate) {
-            alert("Please enter valid inputs for locations and Job Titles and Resume and Template.");
+        if (!locationsInput || !jobTitlesInput || !selectedResume || !selectedTemplate || !selectedSubject) {
+            alert("Please enter valid inputs for locations or Job Titles or Resume or Email Template or Email Subject");
             return;
         }
         const locations = locationsInput.split(",").map((loc) => loc.trim());
@@ -375,7 +413,7 @@ function isfetched(){
           const response = await fetch(`/api/apollo/send-cold-emails-by-automation/`, {
             method: "POST",
             headers: { "Content-Type": "application/json", 'X-CSRFToken': '{{ csrf_token }}', },
-            body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations, target_role: targetRoleInput, selected_template: selectedTemplate, selected_resume: selectedResume}),
+            body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations, target_role: targetRoleInput, selected_template: selectedTemplate, selected_resume: selectedResume, selected_subject: selectedSubject}),
           });
           const result = await response.json();
           processed++;
@@ -487,10 +525,65 @@ function removeFromSelected(companyId) {
         function closeModal() {
             document.getElementById("templateModal").classList.add("hidden");
         }
+      
+        // Function to fetch subjects from the backend
+        async function fetchSubjects() {
+            try {
+                const response = await fetch('/api/fetch-subjects/');
+                const data = await response.json();
+                if (data.success) {
+                    populateSubjects(data.subjects);
+                } else {
+                    console.error("Error fetching subjects:", data.error);
+                }
+            } catch (error) {
+                console.error("Failed to fetch subjects:", error);
+            }
+        }
+
+        // Function to populate subjects in the dropdown
+        function populateSubjects(_subjects) {
+            const dropdown = document.getElementById("subjectDropdown");
+            const selectedSubjectName = dropdown.value;
+            
+            if (selectedSubjectName) {
+                const tempSelectedSubject = window.subjects.find(
+                    (subject) => subject.subject_title === selectedSubjectName
+                );
+                
+            }
+            _subjects.forEach((subject) => {
+                const option = document.createElement("option");
+                option.value = subject.subject_title;
+                option.text = subject.subject_title;
+                dropdown.appendChild(option);
+            });
+
+            subjects = _subjects;
+        }
+
+        // Function to preview subject content
+        function previewSubject() {
+            const dropdown = document.getElementById("subjectDropdown");
+            const selectedSubjectName = dropdown.value;
+
+            if (selectedSubjectName) {
+                const tempSelectedSubject = subjects.find(
+                    (subject) => subject.subject_title === selectedSubjectName
+                );
+                if (tempSelectedSubject) {
+                    alert(`Preview:\n${tempSelectedSubject.subject_content}`);
+                }
+
+            } else {
+                alert("Please select a subject to preview.");
+            }
+        }
+
 
       // Update counts on load
       updateEmailsCountSummary();
-
+      fetchSubjects();
 
       
 
