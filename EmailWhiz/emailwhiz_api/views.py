@@ -35,6 +35,7 @@ client = MongoClient('mongodb://localhost:27017/')  # Replace with your MongoDB 
 db = client['EmailWhiz']  # Replace with your database name
 companies_collection = db['companies'] 
 and_collection = db['and_company_keywords']
+subject_collection = db['subjects']
 combination_collection = db['combinations_company_keywords']
 apollo_apis_curl_collection = db['apollo_apis_curl']
 apollo_emails_collection = db['apollo_emails']
@@ -866,6 +867,7 @@ def apollo_emails_count(request):
     unlocked_emails_count = apollo_emails_collection.count_documents({"email": {"$ne": ""}})
     return JsonResponse({"total": total, "unlocked_emails_count": unlocked_emails_count})
 
+
 def emails_sent_count(request):
     total = apollo_emails_collection.count_documents({})
     # Get current system time and convert to UTC
@@ -1225,9 +1227,12 @@ def send_cold_emails_by_automation_through_apollo_emails(request):
         job_titles = data.get("job_titles", None)
         target_role = data.get("target_role", None)
         selected_template = data.get("selected_template", None)
+        selected_subject = data.get("selected_subject", None)
         resume_name = data.get("selected_resume", None)
-        print("loctions, job_titles, target_role, selected_template, resume_name", locations, job_titles, target_role, selected_template, resume_name)
-        
+        print("loctions, job_titles, target_role, selected_template, resume_name, selected_subject", locations, job_titles, target_role, selected_template, resume_name, selected_subject)
+        if selected_subject:
+            temp_subject = subject_collection.find_one({"username": username}, {"_id": 0, "subject_title": 1, "subject_content": 1})
+            # print("subject: ", temp_subject)
         employees = apollo_emails_collection.find({
             "titles": {"$in": job_titles},
             "country": {"$in": locations},
@@ -1265,8 +1270,23 @@ def send_cold_emails_by_automation_through_apollo_emails(request):
         )
         if existing_email_history:
             return JsonResponse({"error": f"Email already sent to the {employee_email} for the target role: {target_role}" })
+        subject_details = {
+            'first_name': details['first_name'], 
+            'last_name': details['last_name'],
+            'target_role': target_role, 
+            'company_name': company_name
+        }
+        # print("Subect Details: ", subject_details)
 
-        subject = f"[{details['first_name']} {details['last_name']}]: Exploring {target_role} Roles at {company_name}"
+        subject = temp_subject["subject_content"]
+        for variable in ['first_name', 'last_name', 'target_role', 'company_name']:
+            if variable in subject and variable in subject_details:
+                # print("subject_details[variable]: ", subject_details[variable])
+                subject = subject.replace("{" + variable + "}", subject_details[variable])
+                # print("S: ", subject)
+
+        print("subject2: ", subject)
+        # subject = f"[{details['first_name']} {details['last_name']}]: Exploring {target_role} Roles at {company_name}"
         template_path = os.path.join(settings.MEDIA_ROOT, username, 'templates', selected_template)
         with open(template_path, 'r') as f:
             content = f.read()
@@ -1322,9 +1342,13 @@ def send_cold_emails_by_company_through_apollo_emails(request):
         job_titles = data.get("job_titles", None)
         target_role = data.get("target_role", None)
         selected_template = data.get("selected_template", None)
+        selected_subject = data.get("selected_subject", None)
         resume_name = data.get("selected_resume", None)
-        print("loctions, job_titles, target_role, company_info, selected_template, resume_name", locations, job_titles, target_role, company_info, selected_template, resume_name)
-        
+        print("loctions, job_titles, target_role, company_info, selected_template, resume_name, selected_subject", locations, job_titles, target_role, company_info, selected_template, resume_name, selected_subject)
+        if selected_subject:
+            temp_subject = subject_collection.find_one({"username": username}, {"_id": 0, "subject_title": 1, "subject_content": 1})
+            # print("subject: ", temp_subject)
+            
         employees = apollo_emails_collection.find({
             "organization_id": company_info["id"],
             "titles": {"$in": job_titles},
@@ -1362,8 +1386,20 @@ def send_cold_emails_by_company_through_apollo_emails(request):
             employee_email = employee["email"]
             organization_id = employee["organization_id"]
             company_name = company_info["name"]
-
-            subject = f"[{details['first_name']} {details['last_name']}]: Exploring {target_role} Roles at {company_name}"
+            subject_details = {
+            'first_name': details['first_name'], 
+            'last_name': details['last_name'],
+            'target_role': target_role, 
+            'company_name': company_name
+            }
+            subject = temp_subject["subject_content"]
+            for variable in ['first_name', 'last_name', 'target_role', 'company_name']:
+                if variable in subject and variable in subject_details:
+                    # print("subject_details[variable]: ", subject_details[variable])
+                    subject = subject.replace("{" + variable + "}", subject_details[variable])
+                    # print("S: ", subject)
+            print("subject2: ", subject)
+            # subject = f"[{details['first_name']} {details['last_name']}]: Exploring {target_role} Roles at {company_name}"
             template_path = os.path.join(settings.MEDIA_ROOT, username, 'templates', selected_template)
             with open(template_path, 'r') as f:
                 content = f.read()
@@ -1422,3 +1458,45 @@ def send_cold_emails_by_company_through_apollo_emails(request):
 
 
 
+def create_subject(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            details = get_user_details(request.user)
+            username = details["username"]
+            subject_content = data.get("subjectContent")
+            subject_title = data.get("subjectTitle")
+
+            entry = subject_collection.find_one({'subject_title': subject_title})
+            if entry:
+                return JsonResponse({"error": "Subject Title Already Exists."})
+            if not subject_content or not subject_title:
+                return JsonResponse({"error": "Subject content or Subject Title are required."})
+
+            # Create and insert the document
+            subject_document = {
+                "username": username,
+                "subject_title": subject_title,
+                "subject_content": subject_content,
+                "timestamp": datetime.now(),
+            }
+            
+
+            subject_collection.insert_one(subject_document)
+
+            return JsonResponse({"message": "Subject saved successfully!"})
+
+        except Exception as e:
+            return JsonResponse({"error": f"An error occurred: {str(e)}"})
+
+    return JsonResponse({"error": "Invalid request method."})
+
+
+def fetch_subjects(request):
+    try:
+        details = get_user_details(request.user)
+        username = details["username"]
+        subjects = list(subject_collection.find({"username": username}, {"_id": 0, "subject_title": 1, "subject_content": 1}))
+        return JsonResponse({"success": True, "subjects": subjects})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)})

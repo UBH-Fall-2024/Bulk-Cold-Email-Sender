@@ -165,6 +165,8 @@ def preview_template(request, user):
         'excel_data': excel_data,
     })
 
+def create_subject(request):
+    return render(request, 'create_subject.html')
 
 def email_generator(request):
     resume = request.POST.get('selected_resume')
