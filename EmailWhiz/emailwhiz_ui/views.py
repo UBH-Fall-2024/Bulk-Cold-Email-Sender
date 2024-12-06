@@ -21,8 +21,12 @@ from django.contrib.auth import authenticate, login
 from django.contrib import messages
 import json
 from emailwhiz_ui.forms import CustomUserCreationForm
+from pymongo import MongoClient
 
+client = MongoClient('mongodb+srv://shoaibthakur23:Shoaib%40345@cluster0.xjugu.mongodb.net/')  # Replace with your MongoDB connection URI
+db = client['EmailWhiz']
 
+apollo_apis_curl_collection = db['apollo_apis_curl']
 def suggestions_view(request):
     suggestions = [
         {"first_name": "Alice", "last_name": "Johnson", "organization_email_id": "alice.johnson@aws.com", "organization": "Amazon"},
@@ -247,22 +251,25 @@ def update_apollo_apis(request):
     # Load or initialize JSON data
     details = get_user_details(request.user)
     username = details['username']
-    user_dir = os.path.join(settings.MEDIA_ROOT, username)
-    os.makedirs(user_dir, exist_ok=True)
-    json_path = os.path.join(user_dir, 'apollo_apis_details.json')
+    # print("username: ", username)
+    api_details = apollo_apis_curl_collection.find_one({'username': username})
 
-    # Load or initialize JSON data
-    api_details = {}
-    if os.path.exists(json_path):
-        with open(json_path, 'r') as file:
-            api_details = json.load(file)
-    
-    context = {
-        'api1_value': api_details.get('api1', {}).get('curl_request', ''),
-        'api2_value': api_details.get('api2', {}).get('curl_request', ''),
-        'api3_value': api_details.get('api3', {}).get('curl_request', ''),
-    }
+    # print("api_details: ", api_details)
+    if not api_details:
+        context = {
+            'api1_value': api_details.get('api1', {}).get('curl_request', ''),
+            'api2_value': api_details.get('api2', {}).get('curl_request', ''),
+            'api3_value': api_details.get('api3', {}).get('curl_request', ''),
+        }
+    else:
+        context = {
+            'api1_value': api_details["apis"].get('api1', {}).get('curl_request', ''),
+            'api2_value': api_details["apis"].get('api2', {}).get('curl_request', ''),
+            'api3_value': api_details["apis"].get('api3', {}).get('curl_request', ''),
+        }
+    print("context: ", context)
     return render(request, 'update_apollo_apis.html', context)
+
 
 
 def create_companies_data(request):
