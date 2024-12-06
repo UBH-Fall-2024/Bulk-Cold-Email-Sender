@@ -784,6 +784,7 @@ def scrape_companies(request):
         for i in range(1, total_pages+1):
             response = get_companies_id(request, keywords, locations, i, True)
             resp['companies_addition_count'] += response['companies_addition_count']
+            time.sleep(250)
         # Mark the combination as processed
         combination_collection.update_one(
             {"_id": combination["_id"]},
@@ -1065,7 +1066,7 @@ def fetch_employees(request):
         else:
             response['error'] = resp
     
-    time.sleep(0.25)
+    time.sleep(5000)
     # if "error" in response:
     #     return JsonResponse({"error": True, "data": response})
     return JsonResponse(response)
@@ -1220,7 +1221,7 @@ def fetch_employees_emails(request):
 
     
         resp = fetch_employees_emails_from_apollo(_data)
-        time.sleep(0.25)
+        time.sleep(5000)
         if 'success' in resp:
             
             start_index = current_batch*batch_size
@@ -1311,7 +1312,7 @@ def send_cold_emails_by_automation_through_apollo_emails(request):
 
         personalized_message = content.format(first_name=receiver_first_name, last_name=receiver_last_name, email=employee_email, company_name=company_name, designation=target_role)
         send_email(details['gmail_id'], details['gmail_in_app_password'], employee_email, subject, personalized_message, resume_path)
-        time.sleep(0.25)
+        time.sleep(250)
         existing_entry = apollo_emails_sent_history_collection.find_one(
             {"person_id": employee_details["id"], "organization_id": organization_id}
         )
@@ -1431,7 +1432,7 @@ def send_cold_emails_by_company_through_apollo_emails(request):
             )
 
             send_email(details['gmail_id'], details['gmail_in_app_password'], employee_email, subject, personalized_message, resume_path)
-            time.sleep(0.25)
+            time.sleep(250)
             existing_entry = apollo_emails_sent_history_collection.find_one(
                 {"person_id": employee["id"], "organization_id": organization_id}
             )
