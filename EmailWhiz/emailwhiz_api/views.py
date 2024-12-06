@@ -1061,7 +1061,9 @@ def fetch_employees(request):
             response['error'] = resp
     
     time.sleep(0.25)
-    return JsonResponse({"data": response})
+    # if "error" in response:
+    #     return JsonResponse({"error": True, "data": response})
+    return JsonResponse(response)
 
 
 def search_companies(request):
