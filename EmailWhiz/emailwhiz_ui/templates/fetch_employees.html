@@ -230,7 +230,7 @@ function isfetched(){
           });
           const result = await response.json();
           if ("error" in result){
-              document.getElementById("auto-logs").textContent = `Error Occured at ${i}th Company: ${JSON.stringify(result)}\n`;
+              document.getElementById("auto-logs").textContent = `Error Occured at ${i+1}th Company: ${JSON.stringify(result)}\n`;
               break;
           }
           processed++;
@@ -289,7 +289,7 @@ function isfetched(){
           const result = await response.json();
           console.log("result: ", result)
           if ("error" in result){
-              document.getElementById("auto-logs").textContent = `Error Occured at ${i}th Company: ${JSON.stringify(result)}\n`;
+              document.getElementById("auto-logs").textContent = `Error Occured at ${i+1}th Company: ${JSON.stringify(result)}\n`;
               break;
           }
           processed++;

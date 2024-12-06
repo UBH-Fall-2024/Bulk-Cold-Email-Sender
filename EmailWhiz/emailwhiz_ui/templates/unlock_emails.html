@@ -223,6 +223,10 @@ function isfetched(){
             body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations }),
           });
           const result = await response.json();
+          if("error" in result){
+            document.getElementById("auto-logs").textContent = `Error Occured at ${i+1}th Email: ${JSON.stringify(result)}\n`;
+            break
+          }
           processed++;
           document.getElementById("by-company-processed").textContent = processed;
           document.getElementById("by-company-progress-bar").style.width = `${(processed / total) * 100}%`;
@@ -231,7 +235,7 @@ function isfetched(){
             // console.log(JSON.stringify(result), result["data"], typeof(result["data"]));
           tempCompany.employees_count = result["data"]["total_emails_fetched"];
           
-          newEmailslFetched += result["data"]["total_emails_fetched"];
+          newEmailslFetched += result["total_emails_fetched"];
           tempSelectedCompanies.push(tempCompany)
           isEmailsfetched = true;
         }
@@ -278,11 +282,15 @@ function isfetched(){
             body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations }),
           });
           const result = await response.json();
+          if("error" in result){
+            document.getElementById("auto-logs").textContent = `Error Occured at ${i+1}th Email: ${JSON.stringify(result)}\n`;
+            break
+          }
           processed++;
           document.getElementById("auto-processed").textContent = processed;
           document.getElementById("auto-progress-bar").style.width = `${(processed / total) * 100}%`;
           document.getElementById("auto-logs").textContent += `Processed automatically: ${JSON.stringify(result)}\n`;
-          newEmailslFetched += result["data"]["total_emails_fetched"];
+          newEmailslFetched += result["total_emails_fetched"];
           isEmailsfetched = true;
         }
         document.getElementById("new-emails-fetched-count").textContent = newEmailslFetched;
