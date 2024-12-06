@@ -229,6 +229,10 @@ function isfetched(){
             body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations }),
           });
           const result = await response.json();
+          if ("error" in result){
+              document.getElementById("auto-logs").textContent = `Error Occured at ${i}th Company: ${JSON.stringify(result)}\n`;
+              break;
+          }
           processed++;
           document.getElementById("by-company-processed").textContent = processed;
           document.getElementById("by-company-progress-bar").style.width = `${(processed / total) * 100}%`;
@@ -236,7 +240,7 @@ function isfetched(){
           let tempCompany = company;
             // console.log(JSON.stringify(result), result["data"], typeof(result["data"]));
           tempCompany.employees_count = result["data"]["total_employees_fetched"];
-          newEmployeesFetched += result["data"]["total_employees_fetched"];
+          newEmployeesFetched += result["total_employees_fetched"];
           tempSelectedCompanies.push(tempCompany)
           isEmployeesfetched = true;
         }
@@ -283,11 +287,16 @@ function isfetched(){
             body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations }),
           });
           const result = await response.json();
+          console.log("result: ", result)
+          if ("error" in result){
+              document.getElementById("auto-logs").textContent = `Error Occured at ${i}th Company: ${JSON.stringify(result)}\n`;
+              break;
+          }
           processed++;
           document.getElementById("auto-processed").textContent = processed;
           document.getElementById("auto-progress-bar").style.width = `${(processed / total) * 100}%`;
           document.getElementById("auto-logs").textContent += `Processed automatically: ${JSON.stringify(result)}\n`;
-          newEmployeesFetched += result["data"]["total_employees_fetched"];
+          newEmployeesFetched += result["total_employees_fetched"];
           isEmployeesfetched = true;
         }
         document.getElementById("new-employees-fetched-count").textContent = newEmployeesFetched;

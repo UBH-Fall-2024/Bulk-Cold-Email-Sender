@@ -31,7 +31,7 @@ from django.http import JsonResponse
 from django.contrib.auth import get_user_model
 from pymongo import MongoClient
 
-client = MongoClient('mongodb://localhost:27017/')  # Replace with your MongoDB connection URI
+client = MongoClient('mongodb+srv://shoaibthakur23:Shoaib%40345@cluster0.xjugu.mongodb.net/')  # Replace with your MongoDB connection URI
 db = client['EmailWhiz']  # Replace with your database name
 companies_collection = db['companies'] 
 and_collection = db['and_company_keywords']
@@ -577,18 +577,20 @@ def parse_curl_command(curl_command):
 def hit_apollo_api(request, api_name):
     details = get_user_details(request.user)
     username = details['username']
-    user_entry = apollo_apis_curl_collection.find_one({'username': username})
-    api_details = user_entry.get('apis', {})
+    # print("username: ", username)
+    entry = apollo_apis_curl_collection.find_one({'username': username})
+    # print("entry: ", entry)
+    api_details = entry.get('apis', {})
     curl_request = api_details.get(api_name, {}).get('curl_request')
     if not curl_request:
-        return JsonResponse({'error': f"No CURL request found for {api_name}"}, status=404)
+        return JsonResponse({'error': f"No CURL request found for {api_name}"})
 
     try:
         # Parse the curl command
         url, headers, data = parse_curl_command(curl_request)
-        print("Data: ", data)
+        # print("Data: ", data)
         if not url:
-            return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
+            return JsonResponse({'error': "Invalid CURL request: URL missing"})
 
         # Perform the HTTP request
         if data:
@@ -597,12 +599,15 @@ def hit_apollo_api(request, api_name):
             print("R1: ", response, response.__dict__)
         else:
             response = requests.get(url, headers=headers)
-
+        print("response.status_code: ", response.status_code)
+        if response.status_code == 401:
+            # print('response.__dict__["_content"]', response.__dict__["_content"])
+            return JsonResponse({"error": response.__dict__["_content"].decode('utf-8')}, safe=False)
         # Return the response in JSON format
         return JsonResponse(response.json(), safe=False)
 
     except Exception as e:
-        return JsonResponse({'error': e}, status=500)
+        return JsonResponse({'error': e})
     
 
 
@@ -911,14 +916,14 @@ def fetch_employees_data_from_apollo(_data):
     # print("curl_request: ", curl_request)
 
     if not curl_request:
-        return JsonResponse({'error': f"No CURL request found for Employees API"}, status=404)
+        return {'error': f"No CURL request found for Employees API"}
 
     try:
         # Parse the curl command
         url, headers, data = parse_curl_command(curl_request)
         
         if not url:
-            return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
+            return {'error': "Invalid CURL request: URL missing"}
 
         current_page = 1
         max_page = 1
@@ -939,12 +944,15 @@ def fetch_employees_data_from_apollo(_data):
             # Perform the HTTP request
             response = requests.post(url, headers=headers, data=str(data))
             # print("R2: ", response.__dict__)
+            print("R2 Response Code: ", response.status_code)
             response_data = response.json()
-
+            # print("R2.1: ", response_data)
+            if response.status_code != 200: 
+                return response_data
             people = response_data.get('people', [])
             if pages_found == False:
                 total_entries = response_data['pagination']['total_entries']
-                if total_entries > 125:
+                if total_entries > 75:
                     max_page = 3
                 else:
                     max_page = math.ceil(total_entries/25)
@@ -1043,17 +1051,19 @@ def fetch_employees(request):
         if 'success' in resp:
             response['total_employees_fetched'] += resp['data']['count']
         else:
-            response['error'] = 'Partial Success'
+            response['error'] = resp
     else:
         _data['organization_id'] = [company_info['id']]
         resp = fetch_employees_data_from_apollo(_data)
         if 'success' in resp:
             response['total_employees_fetched'] += resp['data']['count']
         else:
-            response['error'] = 'Could not fetch Employee Data'
+            response['error'] = resp
     
     time.sleep(0.25)
-    return JsonResponse({"data": response})
+    # if "error" in response:
+    #     return JsonResponse({"error": True, "data": response})
+    return JsonResponse(response)
 
 
 def search_companies(request):
@@ -1127,7 +1137,6 @@ def fetch_employees_emails_from_apollo(_data):
                 {
                     '$set': {
                         'email': employee_email,
-                
                     }
                 },
                 upsert=True
