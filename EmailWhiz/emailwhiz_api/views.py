@@ -659,14 +659,14 @@ def get_companies_id(request, keywords, locations, requested_page, store_compani
     
 
     if not curl_request:
-        return JsonResponse({'error': f"No CURL request found for Companies API"}, status=404)
+        return {'error': f"No CURL request found for Companies API"}
 
     try:
         # Parse the curl command
         url, headers, data = parse_curl_command(curl_request)
         # data_json=json.loads(data)
         # print("Data1: ", data, type(data), len(data))
-        
+        print("keywords: ", keywords)
         data = replace_value_by_key(data, 'organization_locations', locations)
         data = replace_value_by_key(data, 'q_anded_organization_keyword_tags', keywords)
         data = replace_value_by_key(data, 'page', int(requested_page))
@@ -674,7 +674,7 @@ def get_companies_id(request, keywords, locations, requested_page, store_compani
         # print("modified_json_string", data)
         # print("Data2: ", data, type(data))
         if not url:
-            return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
+            return {'error': "Invalid CURL request: URL missing"}
 
         # Perform the HTTP request
         if data:
@@ -683,6 +683,8 @@ def get_companies_id(request, keywords, locations, requested_page, store_compani
             response = requests.post(url, headers=headers, data=str(data))
             # print("R1: ", response, response.__dict__)
             response_data = response.json()
+            if response.status_code != 200: 
+                return {"error": response_data}
             # print("Response Data: ", response_data)
             accounts = response_data.get('accounts', [])
             organizations = response_data.get('organizations', [])
@@ -743,7 +745,8 @@ def get_companies_id(request, keywords, locations, requested_page, store_compani
         return resp
 
     except Exception as e:
-        return JsonResponse({'error': response.__dict__['_content'].decode("utf-8")}, status=500)
+        traceback.print_exc()
+        return {'error': e}
     
 
 def scrape_companies(request):
@@ -761,14 +764,16 @@ def scrape_companies(request):
         # print("Hello.....")
         # Fetch an unprocessed combination
         combination = combination_collection.find_one({"is_processed": False})
-
+        print("combination: ", combination)
         if not combination:
-            return JsonResponse({"error": "No unprocessed combinations available"}, status=404)
+            return JsonResponse({"error": "No unprocessed combinations available"})
 
         keywords = combination.get("keywords", [])
-        # print("Keywords: ", keywords)
+        print("Keywords: ", keywords)
         response = get_companies_id(request, keywords, locations, 1)
         print("R1_response: ", response)
+        if "error" in response:
+            return JsonResponse({"error": response})
         total_entries = response['pagination']['total_entries']
         if total_entries > 125:
             total_pages = 5
@@ -1122,7 +1127,9 @@ def fetch_employees_emails_from_apollo(_data):
         response = requests.post(url, headers=headers, data=str(data))
         # print("R3: ", response.__dict__)
         response_data = response.json()
-
+            # print("R2.1: ", response_data)
+        if response.status_code != 200: 
+            return response_data
         contacts = response_data.get('contacts', [])
 
 
@@ -1220,11 +1227,11 @@ def fetch_employees_emails(request):
             current_batch += 1
             response['total_emails_fetched'] += resp['data']['count']
         else:
-            response['error'] = 'Partial Success'
+            response['error'] = resp
             break
     
     response["company"] = company_name
-    return JsonResponse({"data": response})
+    return JsonResponse(response)
 
 
 def send_cold_emails_by_automation_through_apollo_emails(request):
