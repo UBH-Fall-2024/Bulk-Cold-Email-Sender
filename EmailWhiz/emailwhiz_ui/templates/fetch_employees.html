@@ -240,7 +240,7 @@ function isfetched(){
           let tempCompany = company;
             // console.log(JSON.stringify(result), result["data"], typeof(result["data"]));
           tempCompany.employees_count = result["data"]["total_employees_fetched"];
-          newEmployeesFetched += result["data"]["total_employees_fetched"];
+          newEmployeesFetched += result["total_employees_fetched"];
           tempSelectedCompanies.push(tempCompany)
           isEmployeesfetched = true;
         }
