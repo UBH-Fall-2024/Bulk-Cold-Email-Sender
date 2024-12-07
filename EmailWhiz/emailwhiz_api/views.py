@@ -596,6 +596,8 @@ def hit_apollo_api(request, api_name):
         if data:
             # print("Headers: ", headers)
             response = requests.post(url, headers=headers, data=data)
+            if response.status_code == 401: 
+                return JsonResponse({"error": response.__dict__["_content"].decode('utf-8')})
             print("R1: ", response, response.__dict__)
         else:
             response = requests.get(url, headers=headers)
@@ -682,6 +684,8 @@ def get_companies_id(request, keywords, locations, requested_page, store_compani
             all_companies = []
             response = requests.post(url, headers=headers, data=str(data))
             # print("R1: ", response, response.__dict__)
+            if response.status_code == 401: 
+                return {"error": response.__dict__["_content"].decode('utf-8')}
             response_data = response.json()
             if response.status_code != 200: 
                 return {"error": response_data}
@@ -950,6 +954,8 @@ def fetch_employees_data_from_apollo(_data):
             # Perform the HTTP request
             response = requests.post(url, headers=headers, data=str(data))
             # print("R2: ", response.__dict__)
+            if response.status_code == 401: 
+                return {"error": response.__dict__["_content"].decode('utf-8')}
             print("R2 Response Code: ", response.status_code)
             response_data = response.json()
             # print("R2.1: ", response_data)
@@ -1126,6 +1132,8 @@ def fetch_employees_emails_from_apollo(_data):
         data = replace_value_by_key(data, 'entity_ids', employee_ids)
         # print("Body2: ", data)
         response = requests.post(url, headers=headers, data=str(data))
+        if response.status_code == 401: 
+                return {"error": response.__dict__["_content"].decode('utf-8')}
         # print("R3: ", response.__dict__)
         response_data = response.json()
             # print("R2.1: ", response_data)
