@@ -5,7 +5,7 @@ USER root
 
 
 RUN apt-get update && \
-    apt-get -y install procps net-tools wget curl vim nginx gunicorn supervisor bash --no-install-recommends && \
+    apt-get install -y procps net-tools wget curl vim nginx gunicorn supervisor bash --no-install-recommends && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -25,10 +25,16 @@ COPY pyproject.toml poetry.lock /usr/src/app/
 
 # install poetry and dependencies
 RUN python -m pip install poetry && poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi
+    poetry install --no-interaction --no-ansi && poetry shell
 
 # add the rest of the application files
 COPY . /usr/src/app/
+
+WORKDIR $APP_PATH
+RUN ls
+RUN python EmailWhiz/manage.py migrate
+
+
 # RUN ls -al /usr/src/app/
 # setup supervisord
 RUN mkdir -p /var/log/supervisord/ && \
