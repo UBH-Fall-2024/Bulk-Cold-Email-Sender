@@ -970,6 +970,9 @@ def fetch_employees_data_from_apollo(_data):
                     max_page = 3
                 else:
                     max_page = math.ceil(total_entries/25)
+            print("max_page: ", max_page)
+            if max_page == 0:
+                break
             if not people:
                 break
 
