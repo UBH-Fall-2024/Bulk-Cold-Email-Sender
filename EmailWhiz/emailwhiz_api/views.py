@@ -1043,7 +1043,7 @@ def fetch_employees(request):
     locations = data.get('locations', None)
     auto = data.get("auto", False)
     titles = data.get("job_titles", None)
-    # print("loctions, job_titles", locations, titles)
+    print("loctions, job_titles", locations, titles)
     if titles is None or locations is None:
         return JsonResponse({"error": 'Job Titles or Locations are Missing'})
     details = get_user_details(request.user)

@@ -4,6 +4,9 @@ sudo docker run -p 8082:8000 -it emailwhiz-prod
 ------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
+tmux kill-server
+tmux list-sessions
+tmux attach-session -t <session-name>
 tmux new -s session_name
 
 sudo apt install python3-pip
