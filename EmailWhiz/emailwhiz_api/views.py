@@ -789,7 +789,7 @@ def scrape_companies(request):
             response = get_companies_id(request, keywords, locations, i, True)
             resp['companies_addition_count'] += response['companies_addition_count']
             print("Sleep Started..", datetime.now())
-            time.sleep(60000)
+            time.sleep(60)
             print("Sleep Ended..", datetime.now())
         # Mark the combination as processed
         combination_collection.update_one(
@@ -955,7 +955,7 @@ def fetch_employees_data_from_apollo(_data):
             print("R2: Request Sent: ", data)
             # Perform the HTTP request
             response = requests.post(url, headers=headers, data=str(data))
-            print("R2: ", response.__dict__)
+            # print("R2: ", response.__dict__)
             if response.status_code == 401: 
                 return {"error": response.__dict__["_content"].decode('utf-8')}
             print("R2 Response Code: ", response.status_code)
@@ -1014,7 +1014,7 @@ def fetch_employees_data_from_apollo(_data):
 
             current_page += 1
             print("Sleep Started..", datetime.now())
-            time.sleep(60000)
+            time.sleep(60)
             print("Sleep Ended..", datetime.now())
 
 
@@ -1237,7 +1237,7 @@ def fetch_employees_emails(request):
     
         resp = fetch_employees_emails_from_apollo(_data)
         print("Sleep Started..", datetime.now())
-        time.sleep(80000)
+        time.sleep(80)
         print("Sleep Ended..", datetime.now())
         if 'success' in resp:
             
@@ -1329,7 +1329,7 @@ def send_cold_emails_by_automation_through_apollo_emails(request):
 
         personalized_message = content.format(first_name=receiver_first_name, last_name=receiver_last_name, email=employee_email, company_name=company_name, designation=target_role)
         send_email(details['gmail_id'], details['gmail_in_app_password'], employee_email, subject, personalized_message, resume_path)
-        time.sleep(250)
+        time.sleep(0.25)
         existing_entry = apollo_emails_sent_history_collection.find_one(
             {"person_id": employee_details["id"], "organization_id": organization_id}
         )
@@ -1449,7 +1449,7 @@ def send_cold_emails_by_company_through_apollo_emails(request):
             )
 
             send_email(details['gmail_id'], details['gmail_in_app_password'], employee_email, subject, personalized_message, resume_path)
-            time.sleep(250)
+            time.sleep(0.25)
             existing_entry = apollo_emails_sent_history_collection.find_one(
                 {"person_id": employee["id"], "organization_id": organization_id}
             )
