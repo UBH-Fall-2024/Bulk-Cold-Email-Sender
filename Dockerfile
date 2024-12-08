@@ -54,10 +54,11 @@ RUN mkdir -p /var/log/supervisord/ && \
 RUN echo "files = /etc/supervisor/conf.d/*.ini" >> /etc/supervisor/supervisord.conf
 COPY emailwhiz-supervisord.ini /etc/supervisor/conf.d/
 
-EXPOSE 5000
+EXPOSE 8000
 
 # Health check must be on gunicorn port.
 # HEALTHCHECK --interval=300s --timeout=10s --retries=1 CMD curl -f http://127.0.0.1:8000/ || exit 1
 
 # run server
-CMD ["supervisord", "--nodaemon", "-c", "/etc/supervisor/supervisord.conf"]
+# CMD ["supervisord", "--nodaemon", "-c", "/etc/supervisor/supervisord.conf"]
+CMD ["python", "EmailWhiz/manage.py", "runserver", "0.0.0.0:8000"]
