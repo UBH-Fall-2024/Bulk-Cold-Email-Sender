@@ -1,3 +1,12 @@
 sudo docker build --no-cache --progress=plain -t emailwhiz-prod:latest .
 sudo docker tag emailwhiz-prod:latest
 sudo docker run -p 8082:8000 emailwhiz-prod
+------------------------------------------------------------------------------
+sudo apt install python3-pip
+curl -sSL https://install.python-poetry.org | python3 -
+sudo apt-get install python3.12
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 2
+/home/bhuvanthirwani2208usa/.local/bin/poetry install
+/home/bhuvanthirwani2208usa/.local/bin/poetry shell

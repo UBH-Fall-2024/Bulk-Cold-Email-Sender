@@ -13,6 +13,7 @@ pypdf2 = "^3.0.1"
 pytz = "^2024.2"
 google-generativeai = "^0.8.3"
 pymongo = "^4.10.1"
+django-sslserver = "^0.22"
 
 
 [build-system]
