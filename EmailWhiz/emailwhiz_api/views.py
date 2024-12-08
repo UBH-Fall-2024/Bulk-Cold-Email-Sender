@@ -25,6 +25,7 @@ from django.core.mail import send_mail
 from django.core.files.storage import FileSystemStorage
 import json
 
+from django.views.decorators.csrf import csrf_exempt
 import time
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
@@ -1033,8 +1034,7 @@ def fetch_employees_data_from_apollo(_data):
         traceback.print_exc()
         return {'error': str(e)}
     
-
-
+@csrf_exempt
 def fetch_employees(request):
 
     data = json.loads(request.body)
