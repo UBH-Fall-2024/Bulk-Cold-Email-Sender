@@ -172,20 +172,25 @@ for i in range(1, 2):
     }
     response = {'total_emails_fetched': 0}
     if auto:
-        
-        employee_details = apollo_emails_collection.find_one({"email": ''})
-        # print("employee_details: ", employee_details)
+        print("Inside Auto...")
+        employee_details = apollo_emails_collection.find_one({
+            "email": "",
+            "titles": {"$in": titles},
+            "country": locations[0]
+        })
+        print("employee_details: ", employee_details)
         if not employee_details:
             print({"error": "All the Emails Have been fetched in our Database"})
+            break
         company_id = employee_details["organization_id"]
         # print("company_id: ", company_id)
         company_details = companies_collection.find_one({"id": company_id})
         company_name = company_details["name"]
-        # print("company_id3", company_id)
+        print("company_details", company_details, titles[0], locations[0])
         employee_ids = apollo_emails_collection.distinct("id", {
             "organization_id": company_id,
             "email": "",
-            "titles": titles[0],
+            "titles": {"$in": titles},
             "country": locations[0]
         })
 
@@ -197,6 +202,7 @@ for i in range(1, 2):
     #         "country": locations
     #     })
     #     company_name = company_info['name']
+    print("len(employee_ids): ", len(employee_ids))
     batches = math.ceil(len(employee_ids)/5)
     # batches = 1
     batch_size = 5
@@ -211,6 +217,7 @@ for i in range(1, 2):
             _data['employee_ids'] = employee_ids[start_index: current_batch*batch_size]
 
         _data['organization_id'] = company_id
+        print("Start Fetching.....")
         resp = fetch_employees_emails_from_apollo(_data)
         print("Sleep Started..", datetime.now())
         time.sleep(80)
