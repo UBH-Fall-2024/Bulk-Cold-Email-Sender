@@ -1,7 +1,189 @@
+import math
+import shlex
+import time
 import requests
-
-from EmailWhiz.emailwhiz_api.views import fetch_employees_data_from_apollo
+import traceback
+# from EmailWhiz.emailwhiz_api.views import fetch_employees_data_from_apollo
 from pymongo import MongoClient
+from datetime import datetime
+
+
+def replace_value_by_key(json_string, key, new_value):
+  """Replaces the value of a specific key in a JSON-like string.
+
+  Args:
+    json_string: The JSON-like string.
+    key: The key to replace.
+    new_value: The new value to replace with.
+
+  Returns:
+    The modified JSON-like string.
+  """
+
+  # Find the start index of the key-value pair
+  start_index = json_string.index(f'"{key}":')
+
+  # Determine the end index based on the value type
+  if isinstance(new_value, str):
+    end_index = json_string.find('"', start_index + len(f'"{key}":') + 1)
+    new_value_str = f'"{new_value}"'
+  elif isinstance(new_value, list):
+    new_value_str = ''
+    for i in range(len(new_value)):
+        new_value_str += '"' + new_value[i] + '"'
+        if i != len(new_value) - 1:
+            new_value_str += ','
+    new_value_str = f'[{new_value_str}]' 
+    end_index = json_string.find(']', start_index + len(f'"{key}":') + 1)
+  elif isinstance(new_value, int):
+    end_index = json_string.find(',', start_index + len(f'"{key}":') + 1) -1 
+    new_value_str = str(new_value)
+  else:
+    raise ValueError("Unsupported value type")
+
+  # Replace the old value with the new one
+  return json_string[:start_index + len(f'"{key}":')] + new_value_str + json_string[end_index+1:]
+
+
+def parse_curl_command(curl_command):
+    """
+    Parse a curl command and return the equivalent Python request components.
+    Supports extracting the URL, headers, and data.
+    """
+    tokens = shlex.split(curl_command)
+    url = None
+    headers = {}
+    data = None
+
+    # Iterate through tokens to extract information
+    for i, token in enumerate(tokens):
+        if token == "curl":
+            continue
+        elif token.startswith("http"):
+            url = token
+        elif token == "-H":
+            header = tokens[i + 1].split(": ", 1)
+            if len(header) == 2:
+                headers[header[0]] = header[1]
+        elif token in ("--data-raw", "-d"):
+            data = tokens[i + 1]
+
+    return url, headers, data
+
+
+def fetch_employees_data_from_apollo(_data):
+
+    organization_id, person_titles, person_locations = _data['organization_id'],  _data['person_titles'],  _data['person_locations']
+    
+
+    curl_request = _data['curl_request']
+    # print("curl_request: ", curl_request)
+
+    if not curl_request:
+        return {'error': f"No CURL request found for Employees API"}
+
+    try:
+        # Parse the curl command
+        url, headers, data = parse_curl_command(curl_request)
+        
+        if not url:
+            return {'error': "Invalid CURL request: URL missing"}
+
+        current_page = 1
+        max_page = 1
+        pages_found = False
+        employees_addition_count = 0
+        
+        while current_page <= max_page:
+            # Update the data payload
+
+            # print(f"organization_id: {type(organization_id)} {organization_id} organization_id: {type(organization_id)} person_titles: {type(person_titles)} person_locations: {type(person_locations)} current_page: {type(current_page)}")
+            data = replace_value_by_key(data, 'organization_ids', organization_id)
+            data = replace_value_by_key(data, 'person_titles', person_titles)
+            data = replace_value_by_key(data, 'person_locations', person_locations)
+            data = replace_value_by_key(data, 'page', current_page)
+
+            
+            print("R2: Request Sent: ", data)
+            # Perform the HTTP request
+            response = requests.post(url, headers=headers, data=str(data))
+            # print("R2: ", response.__dict__)
+            if response.status_code == 401: 
+                return {"error": response.__dict__["_content"].decode('utf-8')}
+            print("R2 Response Code: ", response.status_code)
+            response_data = response.json()
+            # print("R2.1: ", response_data)
+            if response.status_code != 200: 
+                return response_data
+            people = response_data.get('people', [])
+            if pages_found == False:
+                total_entries = response_data['pagination']['total_entries']
+                if total_entries > 75:
+                    max_page = 3
+                else:
+                    max_page = math.ceil(total_entries/25)
+            print(f"max_page: {max_page}")
+            if max_page == 0:
+                print("Sleep Started..")
+                time.sleep(60)
+                print("Sleep Ended..")
+                break
+            if not people:
+                break
+
+            
+            for person in people:
+                employee_id = person.get('id')
+                first_name = person.get('first_name')
+                last_name = person.get('last_name')
+                titles = person.get('title')
+                city = person.get('city')
+                country = person.get('country')
+                email_status = person.get('email_status')
+                is_likely_to_engage = person.get('is_likely_to_engage', False)
+                # Insert or update employee data in apollo_emails
+                result = apollo_emails_collection.update_one(
+                    {'id': employee_id},
+                    {
+                        '$set': {
+                            'first_name': first_name,
+                            'last_name': last_name,
+                            'city': city,
+                            'country': country,
+                            'timestamp': datetime.now(),
+                            'organization_id': organization_id[0],
+                            "email_status": email_status,
+                            "is_likely_to_engage": is_likely_to_engage
+                        },
+                        '$addToSet': {
+                            'titles': titles
+                        },
+                        '$setOnInsert': {
+                            'email': ""  # Keep email empty
+                        }
+                    },
+                    upsert=True
+                )
+                if result.modified_count == 0:
+                    employees_addition_count += 1
+
+            current_page += 1
+            print("Sleep Started..", datetime.now())
+            time.sleep(60)
+            print("Sleep Ended..", datetime.now())
+
+
+        # Mark organization as processed
+        companies_collection.update_one(
+            {'id': organization_id[0]},
+            {'$set': {'is_processed': True}}
+        )
+
+        return {"success": True, "data": {'count': employees_addition_count}}
+
+    except Exception as e:
+        traceback.print_exc()
+        return {'error': str(e)}
 
 client = MongoClient('mongodb+srv://shoaibthakur23:Shoaib%40345@cluster0.xjugu.mongodb.net/')  # Replace with your MongoDB connection URI
 db = client['EmailWhiz']  # Replace with your database name
