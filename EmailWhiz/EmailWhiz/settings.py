@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'emailwhiz_ui',
     'emailwhiz_api'
+    # 'sslserver'
 ]
 
 
