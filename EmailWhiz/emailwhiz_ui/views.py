@@ -256,6 +256,7 @@ def update_apollo_apis(request):
 
     # print("api_details: ", api_details)
     if not api_details:
+        api_details = {}
         context = {
             'api1_value': api_details.get('api1', {}).get('curl_request', ''),
             'api2_value': api_details.get('api2', {}).get('curl_request', ''),
