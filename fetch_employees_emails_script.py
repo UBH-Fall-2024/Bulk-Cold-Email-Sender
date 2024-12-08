@@ -108,13 +108,19 @@ def fetch_employees_emails_from_apollo(_data):
                 return {"error": response.__dict__["_content"].decode('utf-8')}
         # print("R3: ", response.__dict__)
         response_data = response.json()
-            # print("R2.1: ", response_data)
+        print("R2.1: ", response_data)
         if response.status_code != 200: 
             return response_data
         contacts = response_data.get('contacts', [])
 
 
         emails_addition_count = 0
+        if len(contacts) == 0:
+            result = apollo_emails_collection.delete_one({'id': employee_ids[0]})
+            # Check the result
+            if result.deleted_count > 0:
+                print("Person Deleted successfully.", employee_ids[0])
+        
         for contact in contacts:
             employee_id = contact.get('person_id')
             employee_email = contact.get('email', '')
@@ -148,7 +154,7 @@ data = {
     "locations": ["United States"],
 }
 
-for i in range(1, 2):
+for i in range(1, 50):
     print(f"{i}th Attempt")
     # data = json.loads(request.body)
     # company_info = data.get("company_id", None)
@@ -219,7 +225,7 @@ for i in range(1, 2):
         _data['organization_id'] = company_id
         print("Start Fetching.....")
         resp = fetch_employees_emails_from_apollo(_data)
-        print("Sleep Started..", datetime.now())
+        print("Sleep Started..", datetime.now(), resp)
         time.sleep(80)
         print("Sleep Ended..", datetime.now())
         if 'success' in resp:
