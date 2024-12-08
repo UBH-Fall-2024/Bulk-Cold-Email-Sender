@@ -952,10 +952,10 @@ def fetch_employees_data_from_apollo(_data):
             data = replace_value_by_key(data, 'page', current_page)
 
             
-            # print("Body: ", data)
+            print("R2: Request Sent: ", data)
             # Perform the HTTP request
             response = requests.post(url, headers=headers, data=str(data))
-            # print("R2: ", response.__dict__)
+            print("R2: ", response.__dict__)
             if response.status_code == 401: 
                 return {"error": response.__dict__["_content"].decode('utf-8')}
             print("R2 Response Code: ", response.status_code)
