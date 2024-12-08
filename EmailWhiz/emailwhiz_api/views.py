@@ -970,8 +970,11 @@ def fetch_employees_data_from_apollo(_data):
                     max_page = 3
                 else:
                     max_page = math.ceil(total_entries/25)
-            print("max_page: ", max_page)
+            print(f"max_page: {max_page}")
             if max_page == 0:
+                print("Sleep Started..")
+                time.sleep(60)
+                print("Sleep Ended..")
                 break
             if not people:
                 break
@@ -1033,6 +1036,7 @@ def fetch_employees_data_from_apollo(_data):
 
 
 def fetch_employees(request):
+
     data = json.loads(request.body)
     company_info = data.get("company_id", None)
     # print("company_id: ", company_info)
@@ -1044,9 +1048,11 @@ def fetch_employees(request):
         return JsonResponse({"error": 'Job Titles or Locations are Missing'})
     details = get_user_details(request.user)
     username = details['username']
+    print("finding user_entry.....")
     user_entry = apollo_apis_curl_collection.find_one({'username': username})
+    print("found user_entry.....", user_entry)
     api_details = user_entry.get('apis', {})
-
+    print("finding api_details.....")
     curl_request = api_details.get('api2', {}).get('curl_request')
 
     _data = {
@@ -1066,7 +1072,7 @@ def fetch_employees(request):
 
         _data['organization_id'] = [company_id]
         
-        
+        print("Starting Fetching....")
         resp = fetch_employees_data_from_apollo(_data)
         if 'success' in resp:
             response['total_employees_fetched'] += resp['data']['count']
