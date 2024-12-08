@@ -788,7 +788,9 @@ def scrape_companies(request):
         for i in range(1, total_pages+1):
             response = get_companies_id(request, keywords, locations, i, True)
             resp['companies_addition_count'] += response['companies_addition_count']
+            print("Sleep Started..", datetime.now())
             time.sleep(60000)
+            print("Sleep Ended..", datetime.now())
         # Mark the combination as processed
         combination_collection.update_one(
             {"_id": combination["_id"]},
@@ -1008,6 +1010,9 @@ def fetch_employees_data_from_apollo(_data):
                     employees_addition_count += 1
 
             current_page += 1
+            print("Sleep Started..", datetime.now())
+            time.sleep(60000)
+            print("Sleep Ended..", datetime.now())
 
 
         # Mark organization as processed
@@ -1072,7 +1077,6 @@ def fetch_employees(request):
         else:
             response['error'] = resp
     
-    time.sleep(60000)
     # if "error" in response:
     #     return JsonResponse({"error": True, "data": response})
     return JsonResponse(response)
@@ -1229,7 +1233,9 @@ def fetch_employees_emails(request):
 
     
         resp = fetch_employees_emails_from_apollo(_data)
+        print("Sleep Started..", datetime.now())
         time.sleep(80000)
+        print("Sleep Ended..", datetime.now())
         if 'success' in resp:
             
             start_index = current_batch*batch_size
