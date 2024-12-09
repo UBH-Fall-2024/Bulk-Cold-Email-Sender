@@ -235,7 +235,7 @@ for i in range(1, 1001):
     print("loctions, job_titles", locations, titles)
     # if titles is None or locations is None:
     #     return JsonResponse({"error": 'Job Titles or Locations are Missing'})
-    # details = get_user_details(request.user)
+    # details = get_user_details(request.session.get('username'))
     # username = details['username']
     username="bhuvan304"
     print("finding user_entry.....")
