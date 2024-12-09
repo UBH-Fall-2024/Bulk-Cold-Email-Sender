@@ -30,8 +30,14 @@ import time
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
-from pymongo import MongoClient
 
+# from .models import CustomMongoDBUser
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth import authenticate
+
+from django.conf import settings
+
+from pymongo import MongoClient
 client = MongoClient('mongodb+srv://shoaibthakur23:Shoaib%40345@cluster0.xjugu.mongodb.net/')  # Replace with your MongoDB connection URI
 db = client['EmailWhiz']  # Replace with your database name
 companies_collection = db['companies'] 
@@ -41,17 +47,21 @@ combination_collection = db['combinations_company_keywords']
 apollo_apis_curl_collection = db['apollo_apis_curl']
 apollo_emails_collection = db['apollo_emails']
 apollo_emails_sent_history_collection = db['apollo_emails_sent_history']
+users_collection = db['users'] 
 
-proxy = {
-    "http": "http://User-001:123456@192.168.56.1:808",
-    "https": "https://User-001:123456@192.168.56.1:808",
-}
 
 CustomUser = get_user_model()
-
+SECRET_KEY = 'EmailWhiz'
 # from dotenv import load_dotenv
 # load_dotenv()
 
+
+def get_user_details(username):
+    user = users_collection.find_one({"username": username}, {"_id": 0, "password": 0})
+    if user:
+        user['graduation_done'] = False if  user["graduated_or_not"] == 'no' else True,
+        return user
+    return {"error": "User not found."}
 
 def get_template(details):
     template = '''Giving you my text of resume.\n
@@ -106,7 +116,7 @@ def create_template_post(request):
     if request.method == 'POST':
         template_title = request.POST.get('template_title')
         template_content = request.POST.get('template_content')
-        details= get_user_details(request.user)
+        details= get_user_details(request.session.get('username'))
         upload_dir = os.path.join(settings.MEDIA_ROOT, f'{details["username"]}/templates')
         if not os.path.exists(upload_dir):
             os.makedirs(upload_dir)
@@ -123,33 +133,68 @@ def create_template_post(request):
     return render(request, 'create_template.html')
 
 
+# def get_user_details(username):
+#     user = get_object_or_404(CustomUser, username=username)
+#     user_data = {
+#         "username": user.username,
+#         'first_name': user.first_name,
+#         'last_name': user.last_name,
+#         'university': user.college,
+#         'graduation_done': False if  user.graduated_or_not == 'no' else True,
+#         "email": user.email,
+#         "linkedin_url": user.linkedin_url,
+#         "phone_number": user.phone_number,
+#         "degree_name": user.degree_name,
+#         "gemini_api_key": user.gemini_api_key,
+#         "gmail_id": user.gmail_id,
+#         "gmail_in_app_password": user.gmail_in_app_password
+#     }
+#     return user_data
+
+
 def get_user_details(username):
-    user = get_object_or_404(CustomUser, username=username)
+    """
+    Fetches user details from MongoDB for a given username.
+
+    Args:
+        username (str): The username of the user.
+
+    Returns:
+        dict: A dictionary containing user details if found.
+
+    Raises:
+        ValueError: If the user is not found in the database.
+    """
+    # Query MongoDB to find the user
+    user = users_collection.find_one({"username": username})
+    
+    if not user:
+        # Raise an error if the user is not found
+        raise ValueError(f"User with username '{username}' not found.")
+    
+    # Construct the user data dictionary
     user_data = {
-        "username": user.username,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'university': user.college,
-        'graduation_done': False if  user.graduated_or_not == 'no' else True,
-        "email": user.email,
-        "linkedin_url": user.linkedin_url,
-        "phone_number": user.phone_number,
-        "degree_name": user.degree_name,
-        "gemini_api_key": user.gemini_api_key,
-        "gmail_id": user.gmail_id,
-        "gmail_in_app_password": user.gmail_in_app_password
+        "username": user.get("username"),
+        "first_name": user.get("first_name"),
+        "last_name": user.get("last_name"),
+        "university": user.get("college"),
+        "graduation_done": user.get("graduated_or_not", "").lower() != 'no',  # Graduation status
+        "email": user.get("email"),
+        "linkedin_url": user.get("linkedin_url"),
+        "phone_number": user.get("phone_number"),
+        "degree_name": user.get("degree_name"),
+        "gemini_api_key": user.get("gemini_api_key"),
+        "gmail_id": user.get("gmail_id"),
+        "gmail_in_app_password": user.get("gmail_in_app_password"),
     }
+
     return user_data
-
-
-
-
 
 def save_resume(request):
     if request.method == 'POST':
         file_name = request.POST.get('file_name')
         uploaded_file = request.FILES.get('file')
-        details= get_user_details(request.user)
+        details= get_user_details(request.session.get('username'))
         if uploaded_file:
             upload_dir = os.path.join(settings.MEDIA_ROOT, f'{details["username"]}/resumes')
 
@@ -250,7 +295,7 @@ def email_generator_post(request):
     print("Hello")
     if request.method == 'POST':
 
-        details = get_user_details(request.user)
+        details = get_user_details(request.session.get('username'))
         gemini_api_key = details['gemini_api_key']
 
         
@@ -417,7 +462,7 @@ def update_email_history(username, receiver_email, subject, content, company, de
 def send_emails(request):
     print("123")
     if request.method == 'POST':
-        details = get_user_details(request.user)
+        details = get_user_details(request.session.get('username'))
         data = json.loads(request.body).get('data')
         
         print("data", data)
@@ -445,7 +490,7 @@ def generate_followup(request):
     if request.method == "POST":
         data = json.loads(request.body)
         receiver_email = data["receiver_email"]
-        details= get_user_details(request.user)
+        details= get_user_details(request.session.get('username'))
         username = details['username']
 
         # Load email history
@@ -467,7 +512,7 @@ def generate_followup(request):
         In your response, there should not be any boxes [mention something..]. I don't want to fill the values manuaaly not even date.\n
         Again, give me your response as text block in the format {.....} not in json or code block."""
 
-        details = get_user_details(request.user)
+        details = get_user_details(request.session.get('username'))
         gemini_api_key = details['gemini_api_key']
 
         genai.configure(api_key=gemini_api_key)
@@ -501,7 +546,7 @@ def generate_followup(request):
 
 def send_followup(request):
     if request.method == "POST":
-        details = get_user_details(request.user)
+        details = get_user_details(request.session.get('username'))
         username = details['username']
         data = json.loads(request.body)
         receiver_email = data["receiver_email"]
@@ -517,7 +562,7 @@ def send_followup(request):
 
 def update_apollo_apis(request, api_name):
 
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']
     
     # Ensure the collection has an entry for this user
@@ -576,7 +621,7 @@ def parse_curl_command(curl_command):
     return url, headers, data
 
 def hit_apollo_api(request, api_name):
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']
     # print("username: ", username)
     entry = apollo_apis_curl_collection.find_one({'username': username})
@@ -653,7 +698,7 @@ def replace_value_by_key(json_string, key, new_value):
 def get_companies_id(request, keywords, locations, requested_page, store_companies=False):
    
 
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']
     user_entry = apollo_apis_curl_collection.find_one({'username': username})
     api_details = user_entry.get('apis', {})
@@ -810,7 +855,7 @@ def scrape_companies(request):
 #     if not dataset:
 #         return JsonResponse({'error': 'Dataset not selected'}, status=400)
 
-#     details = get_user_details(request.user)
+#     details = get_user_details(request.session.get('username'))
 #     username = details['username']
 #     user_dir = os.path.join(settings.MEDIA_ROOT, username, dataset)
 
@@ -1046,7 +1091,7 @@ def fetch_employees(request):
     print("loctions, job_titles", locations, titles)
     if titles is None or locations is None:
         return JsonResponse({"error": 'Job Titles or Locations are Missing'})
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']
     print("finding user_entry.....")
     user_entry = apollo_apis_curl_collection.find_one({'username': username})
@@ -1190,7 +1235,7 @@ def fetch_employees_emails(request):
     print("loctions, job_titles", locations, titles)
     if titles is None or locations is None:
         return JsonResponse({"error": 'Job Titles or Locations are Missing'})
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']
     user_entry = apollo_apis_curl_collection.find_one({'username': username})
     api_details = user_entry.get('apis', {})
@@ -1261,7 +1306,7 @@ def fetch_employees_emails(request):
 def send_cold_emails_by_automation_through_apollo_emails(request):
     try:
         data = json.loads(request.body)
-        details = get_user_details(request.user)
+        details = get_user_details(request.session.get('username'))
         username = details['username']
         # print("company_id: ", company_info)
         locations = data.get('locations', None)
@@ -1375,7 +1420,7 @@ def send_cold_emails_by_automation_through_apollo_emails(request):
 def send_cold_emails_by_company_through_apollo_emails(request):
     try:
         data = json.loads(request.body)
-        details = get_user_details(request.user)
+        details = get_user_details(request.session.get('username'))
         username = details['username']
         company_info = data.get("company_id", None)
         # print("company_id: ", company_info)
@@ -1503,7 +1548,7 @@ def create_subject(request):
     if request.method == "POST":
         try:
             data = json.loads(request.body)
-            details = get_user_details(request.user)
+            details = get_user_details(request.session.get('username'))
             username = details["username"]
             subject_content = data.get("subjectContent")
             subject_title = data.get("subjectTitle")
@@ -1535,7 +1580,7 @@ def create_subject(request):
 
 def fetch_subjects(request):
     try:
-        details = get_user_details(request.user)
+        details = get_user_details(request.session.get('username'))
         username = details["username"]
         subjects = list(subject_collection.find({"username": username}, {"_id": 0, "subject_title": 1, "subject_content": 1}))
         return JsonResponse({"success": True, "subjects": subjects})

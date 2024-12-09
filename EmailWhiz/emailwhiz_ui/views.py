@@ -1,5 +1,6 @@
 
 # EmailWhiz/emailwhiz_ui/views.py
+import uuid
 from django.shortcuts import redirect, render
 from django.conf import settings
 import os
@@ -14,6 +15,7 @@ from django.contrib.auth.models import User
 
 from emailwhiz_api.views import get_user_details
 from emailwhiz_ui.forms import CustomUserCreationForm
+from django.contrib.auth.hashers import make_password, check_password
 
 
 from django.shortcuts import render, redirect
@@ -26,7 +28,16 @@ from pymongo import MongoClient
 client = MongoClient('mongodb+srv://shoaibthakur23:Shoaib%40345@cluster0.xjugu.mongodb.net/')  # Replace with your MongoDB connection URI
 db = client['EmailWhiz']
 
+
 apollo_apis_curl_collection = db['apollo_apis_curl']
+
+def fetch_metadata(form_name):
+    """Fetch dynamic form metadata."""
+    METADATA_COLLECTION = db['frontend_metadata']
+    metadata = METADATA_COLLECTION.find_one({"form_name": form_name})
+    return metadata['fields'] if metadata else []
+
+
 def suggestions_view(request):
     suggestions = [
         {"first_name": "Alice", "last_name": "Johnson", "organization_email_id": "alice.johnson@aws.com", "organization": "Amazon"},
@@ -66,7 +77,7 @@ def view_generated_emails(request, data):
     return render(request, 'view_generated_emails.html', body)
 
 def view_user_details(request):
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     print("Details: ", details)
     if details['graduation_done'] == True:
         details['graduation_done'] = 'Yes'
@@ -79,14 +90,15 @@ def view_user_details(request):
     return render(request, 'view_user_details.html', {'details': details,  'username': details['username'],  'resumes': resumes})
 
 def home(request):
-    details = get_user_details(request.user)
-    upload_dir = os.path.join(settings.MEDIA_ROOT, f'{details["username"]}/resumes')
+    print("Hello....")
+    username =  request.session.get('username')
+    upload_dir = os.path.join(settings.MEDIA_ROOT, f'{username}/resumes')
     if not os.path.exists(upload_dir):
         os.makedirs(upload_dir)
     return render(request, 'base.html')
 
 def list_resumes(request):
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
 
     selected_template = request.POST.get('selected_template')
     
@@ -100,7 +112,7 @@ def list_resumes(request):
 
 def select_email_template(request):
     # Get the user's username and templates directory
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']
     templates_dir = os.path.join(settings.BASE_DIR, 'emailwhiz_api', 'users', username, 'templates')
     
@@ -120,7 +132,7 @@ def select_email_template(request):
     return render(request, 'select_template.html', {'templates': templates})
 
 def list_templates(request):
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']
     templates_dir = os.path.join(settings.BASE_DIR, 'emailwhiz_api', 'users', username, 'templates')
     # Initialize list to hold template details
@@ -184,32 +196,20 @@ def email_generator(request):
 def add_resume(request):
     return render(request, 'add_resume.html')
 
-def login_view(request):
-    if request.method == "POST":
-        username = request.POST['username']
-        password = request.POST['password']
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
-            login(request, user)
-            return redirect('home')  # Change 'home' to the name of the view or URL where you want to redirect on successful login
-        else:
-            messages.error(request, "Invalid username or password")
-    return render(request, 'login.html')
 
-def register_view(request):
-    if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Registration successful! Please log in.")
-            return redirect('login')  # Redirect to the login page after successful registration
-        else:
-            # Display error messages if form is not valid
-            messages.error(request, "Please fix the errors below.")
-            return render(request, 'register.html', {'form': form})
-    else:
-        form = CustomUserCreationForm()  # Instantiate an empty form for GET request
-    return render(request, 'register.html', {'form': form})
+# def login_view(request):
+#     if request.method == "POST":
+#         username = request.POST['username']
+#         password = request.POST['password']
+#         user = authenticate(request, username=username, password=password)
+#         if user is not None:
+#             login(request, user)
+#             return redirect('home')  # Change 'home' to the name of the view or URL where you want to redirect on successful login
+#         else:
+#             messages.error(request, "Invalid username or password")
+#     return render(request, 'login.html')
+
+
 
 def add_employer_details(request):
     # body = json.loads(request.body)
@@ -219,7 +219,7 @@ def add_employer_details(request):
 
 
 def email_history(request):
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']  # Get the logged-in user's username
     user_dir = os.path.join(settings.BASE_DIR, 'emailwhiz_api', 'users', username)
     history_file = os.path.join(user_dir, 'history.json')
@@ -249,7 +249,7 @@ def email_history(request):
 
 def update_apollo_apis(request):
     # Load or initialize JSON data
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']
     # print("username: ", username)
     api_details = apollo_apis_curl_collection.find_one({'username': username})
@@ -278,7 +278,7 @@ def create_companies_data(request):
 
 
 def get_companies_datasets(request):
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']
     user_dir = os.path.join(settings.MEDIA_ROOT, username)
     datasets = [
@@ -292,7 +292,7 @@ def select_companies(request):
     if not dataset:
         return JsonResponse({'error': 'Dataset not selected'}, status=400)
 
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']
     user_dir = os.path.join(settings.MEDIA_ROOT, username, dataset)
 
@@ -305,7 +305,7 @@ def select_companies(request):
     if not dataset:
         return JsonResponse({'error': 'Dataset not selected'}, status=400)
 
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']
     user_dir = os.path.join(settings.MEDIA_ROOT, username, dataset)
 
@@ -320,7 +320,7 @@ def unlock_emails(request):
     return render(request, 'unlock_emails.html')
 
 def send_cold_emails_through_apollo_emails(request):
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
     username = details['username']
     templates_dir = os.path.join(settings.BASE_DIR, 'emailwhiz_api', 'users', username, 'templates')
     
@@ -337,10 +337,74 @@ def send_cold_emails_through_apollo_emails(request):
                     'content': content
                 })
 
-    details = get_user_details(request.user)
+    details = get_user_details(request.session.get('username'))
 
     resumes_dir = os.path.join(settings.BASE_DIR, 'emailwhiz_api', 'users', username, 'resumes')
     print("resume_dir: ", resumes_dir, settings.BASE_DIR)
     resumes = [f for f in os.listdir(resumes_dir) if f.endswith('.pdf')]
     print("resumes: ", resumes)
     return render(request, 'send_cold_emails_through_apollo_emails.html', {'templates': templates, 'resumes': resumes})
+
+
+
+def register_view(request):
+    """Handle registration view."""
+    USER_COLLECTION = db['users']
+    if request.method == "POST":
+        data = {
+            "first_name": request.POST.get("first_name"),
+            "last_name": request.POST.get("last_name"),
+            "phone_number": request.POST.get("phone_number"),
+            "linkedin_url": request.POST.get("linkedin_url"),
+            "email": request.POST.get("email"),
+            "graduated_or_not": request.POST.get("graduated_or_not"),
+            "college": request.POST.get("college"),
+            "degree_name": request.POST.get("degree_name"),
+            "gmail_id": request.POST.get("gmail_id"),
+            "gmail_in_app_password": request.POST.get("gmail_in_app_password"),
+            "gemini_api_key": request.POST.get("gemini_api_key"),
+            "username": request.POST.get("username"),
+            "password": make_password(request.POST.get("password")),
+            "id": str(uuid.uuid4())
+        }
+
+        # Check if email already exists
+        # if USER_COLLECTION.find_one({"email": data["email"]}):
+        #     messages.error(request, "User with this email already exists.")
+        #     return redirect("register")
+        if USER_COLLECTION.find_one({"username": data["username"]}):
+            messages.error(request, "User with this email already exists.")
+            return redirect("register")
+
+        # Insert the new user
+        USER_COLLECTION.insert_one(data)
+        messages.success(request, "Registration successful! Please log in.")
+        return redirect("login")
+
+    # Fetch form metadata for rendering
+    fields = fetch_metadata("registration")
+    return render(request, "register.html", {"fields": fields})
+
+def login_view(request):
+    """Handle login view."""
+    if request.method == "POST":
+        USER_COLLECTION = db['users']
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+        user = USER_COLLECTION.find_one({"username": username})
+
+        if user and check_password(password, user['password']):
+            request.session['user_id'] = str(user['id'])
+            request.session['username'] = str(user['username'])
+            return redirect("home")
+        else:
+            messages.error(request, "Invalid credentials")
+
+    fields = fetch_metadata("login")
+    return render(request, "login.html", {"fields": fields})
+
+
+def logout_view(request):
+    """Handle user logout."""
+    request.session.flush()
+    return redirect("login")

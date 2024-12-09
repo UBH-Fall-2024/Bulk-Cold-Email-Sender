@@ -3,6 +3,9 @@ from . import views
 
 urlpatterns = [
 
+    # path('register/', views.register, name='api_register'),
+    # path('login/', views.login, name='api_login'),
+
     path('save_resume/', views.save_resume, name='save_resume'),
     path('send-emails/', views.send_emails, name='send_emails'),
     path('email-generator_post/', views.email_generator_post, name='email_generator_post'),
@@ -20,6 +23,7 @@ urlpatterns = [
     path('apollo-emails-count/', views.apollo_emails_count, name='apollo_emails_count'),
     path('create-subject/',  views.create_subject, name='create_subject'),
     path('fetch-subjects/',  views.fetch_subjects, name='fetch_subjects'),
+    
     
     path('get-non-processed-companies/', views.get_non_processed_companies, name='get_non_processed_companies'),
     path('search-companies/', views.search_companies, name='search_companies'),

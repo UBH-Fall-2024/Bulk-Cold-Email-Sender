@@ -165,7 +165,7 @@ for i in range(1, 50):
     print("loctions, job_titles", locations, titles)
     if titles is None or locations is None:
         print({"error": 'Job Titles or Locations are Missing'})
-    # details = get_user_details(request.user)
+    # details = get_user_details(request.session.get('username'))
     # username = details['username']
     username='shoaib231'
     user_entry = apollo_apis_curl_collection.find_one({'username': username})
