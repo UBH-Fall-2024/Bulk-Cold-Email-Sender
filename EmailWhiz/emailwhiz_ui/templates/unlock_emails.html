@@ -231,6 +231,10 @@ function isfetched(){
         //   document.getElementById("companies-select").selectedOptions
         // ).map((option) => option.value);
         const total = selectedCompanies.length;
+        if(total > 1){
+          alert("You must Select only Once Company");
+          return
+        }
         let processed = 0;
         document.getElementById("by-company-logs").innerHTML = '';
         document.getElementById("by-company-total").textContent = total;
@@ -251,10 +255,10 @@ function isfetched(){
           processed++;
           document.getElementById("by-company-processed").textContent = processed;
           document.getElementById("by-company-progress-bar").style.width = `${(processed / total) * 100}%`;
-          document.getElementById("by-company-logs").innerHTML += `<span>Processed company ${company.name}: ${JSON.stringify(result)} </span><br>`;
+          document.getElementById("by-company-logs").innerHTML += `<span>${JSON.stringify(result)} </span><br>`;
           let tempCompany = company;
             // console.log(JSON.stringify(result), result["data"], typeof(result["data"]));
-          tempCompany.employees_count = result["data"]["total_emails_fetched"];
+          // tempCompany.employees_count = result["data"]["total_emails_fetched"];
           
           newEmailslFetched += result["total_emails_fetched"];
           tempSelectedCompanies.push(tempCompany)
@@ -296,7 +300,6 @@ function isfetched(){
         document.getElementById("auto-total").textContent = total;
         document.getElementById("auto-progress-section").classList.remove("hidden");
         newEmailslFetched=0;
-        for (let i = 0; i < total; i++) {
           const response = await fetch(`/api/fetch-employees-emails/`, {
             method: "POST",
             headers: { "Content-Type": "application/json", 'X-CSRFToken': '{{ csrf_token }}', },
@@ -304,16 +307,15 @@ function isfetched(){
           });
           const result = await response.json();
           if("error" in result){
-            document.getElementById("auto-logs").textContent = `Error Occured at ${i+1}th Email: ${JSON.stringify(result)}\n`;
-            break
+            document.getElementById("auto-logs").textContent = `Error Occured: ${JSON.stringify(result)}\n`;
           }
           processed++;
           document.getElementById("auto-processed").textContent = processed;
           document.getElementById("auto-progress-bar").style.width = `${(processed / total) * 100}%`;
-          document.getElementById("auto-logs").textContent += `Processed automatically: ${JSON.stringify(result)}\n`;
-          newEmailslFetched += result["total_emails_fetched"];
+          document.getElementById("auto-logs").textContent += `${JSON.stringify(result)}\n`;
+          // newEmailslFetched += result["total_emails_fetched"];
           isEmailsfetched = true;
-        }
+        
         document.getElementById("new-emails-fetched-count").textContent = newEmailslFetched;
       }
 // Add company to the selected list
