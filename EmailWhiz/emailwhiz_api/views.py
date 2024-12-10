@@ -1256,6 +1256,7 @@ def unlock_emails_job(data):
         number_of_companies = 1
     apollo_emails_collection = db['apollo_emails']
     total_emails = 0
+    emails_count = 0
     for i in range(1, number_of_companies + 1):
         print(f"Starting {i}th Company", auto)
         print("Titles: ", titles)
@@ -1305,8 +1306,8 @@ def unlock_emails_job(data):
             print("T2", employee_ids)
             company_name = company_info['name']
         
-        batch_size = 2
-        batches = math.ceil(len(employee_ids)/2)
+        batch_size = 10
+        batches = math.ceil(len(employee_ids)/batch_size)
         print("batches: ", batches)
         current_batch = 1
         start_index = 0
@@ -1322,26 +1323,27 @@ def unlock_emails_job(data):
         
             resp = fetch_employees_emails_from_apollo(_data)
             print("Sleep Started..", datetime.now())
-            time.sleep(120)
+            time.sleep(300)
             print("Sleep Ended..", datetime.now())
             if 'success' in resp:
                 start_index = current_batch*batch_size
                 current_batch += 1
                 response['total_emails_fetched'] += resp['data']['count']
-                total_emails += resp['data']['count']
-                if total_emails >= 500:
+                emails_count += resp['data']['count']
+                if emails_count >= 500:
                     print("Day Sleep Started.. 26400 Seconds", datetime.now())
+                    total_emails += emails_count
                     jobs.update_one(
                         {"id": job_id},
-                        {"$set": {"latest_log": f"Deep Sleep {i}th Company: {str(response)} | Completed Batch {current_batch} | Total Emails Crossed 500: {total_emails}"}}
+                        {"$set": {"latest_log": f"Deep Sleep {i}th Company: {str(response)} Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Emails Crossed 500: {emails_count} | Total Emails Fetched: {total_emails}"}}
                     )
                     time.sleep(26400)
-                    total_emails = 0
+                    emails_count = 0
                     print("Day Sleep Ended.. 26400 Seconds", datetime.now())
                 
                 jobs.update_one(
                     {"id": job_id},
-                    {"$set": {"latest_log": f"Processesing {i}th Company: {str(response)} | Completed Batch {current_batch}"}}
+                    {"$set": {"latest_log": f"Processesing {i}th Company: {str(response)} | Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total Emails Fetched: {total_emails}"}}
                 )
             else:
                 response['error'] = resp
@@ -1355,7 +1357,7 @@ def unlock_emails_job(data):
 
         jobs.update_one(
             {"id": job_id},
-            {"$set": {"completed": i, "latest_log": f"Processed {i}th Company: {str(response)}"}}
+            {"$set": {"completed": i, "latest_log": f"Processed {i}th Company: {str(response)} |  Total Emails Fetched: {total_emails}"}}
         )
         
         
@@ -1715,7 +1717,7 @@ def get_job_history(request):
     username = request.session.get('username')  # Replace with actual user retrieval logic
     jobs = db['jobs']
     # Fetch all jobs for the user, sorted by most recent first
-    job_history = list(jobs.find({"username": username, "status": "completed"}, {"_id": 0}).sort("created_at", -1))
+    job_history = list(jobs.find({"username": username}, {"_id": 0}).sort("created_at", -1))
 
     if job_history:
         return JsonResponse({"jobs": job_history})
