@@ -1179,16 +1179,16 @@ def fetch_employees_emails_from_apollo(_data):
     curl_request = _data['curl_request']
 
     if not curl_request:
-        return JsonResponse({'error': f"No CURL request found for Employees API"}, status=404)
+        return {'error': f"No CURL request found for Employees API"}
 
     try:
         # Parse the curl command
         url, headers, data = parse_curl_command(curl_request)
         
         if not url:
-            return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
+            return {'error': "Invalid CURL request: URL missing"}
 
-    
+        print("Body 1: ", data)
         data = replace_value_by_key(data, 'entity_ids', employee_ids)
         # print("Body2: ", data)
         response = requests.post(url, headers=headers, data=str(data))
@@ -1254,36 +1254,45 @@ def unlock_emails_job(data):
 
     if auto == False:
         number_of_companies = 1
-    
+    apollo_emails_collection = db['apollo_emails']
     for i in range(1, number_of_companies + 1):
-        print(f"Starting {i}th Company")
+        print(f"Starting {i}th Company", auto)
+        print("Titles: ", titles)
+        print("Locations: ", locations)
+
         response = {'total_emails_fetched': 0}
         if auto:
-            
+            print("G1")
+            print("Titles: ", titles)
+            print("Locations: ", locations)
+
             employee_details = apollo_emails_collection.find_one({
                 "email": "",
                 "titles": {"$in": titles},
                 "country": locations[0]
             })
+            print("G2", employee_details)
             print("employee_details: ", employee_details)
+            
             if not employee_details:
                 jobs.update_one(
                     {"id": job_id},
                     {"$set": {"status": "error", "latest_log": str({"error": "All the Emails Have been fetched in our Database"})}}
                 )
                 return
-
+            print("G3")
             company_id = employee_details["organization_id"]
             # print("company_id: ", company_id)
             company_details = companies_collection.find_one({"id": company_id})
             company_name = company_details["name"]
-            # print("company_id3", company_id)
+            print("company_details", company_details)
             employee_ids = apollo_emails_collection.distinct("id", {
                 "organization_id": company_id,
                 "email": "",
                 "titles": {"$in": titles},
                 "country": locations[0]
             })
+            print("G4", employee_ids)
 
         else:
             employee_ids = apollo_emails_collection.distinct("id", {
@@ -1292,6 +1301,7 @@ def unlock_emails_job(data):
                 "titles": {"$in": titles},
                 "country": locations[0]
             })
+            print("T2", employee_ids)
             company_name = company_info['name']
         
         batch_size = 2
@@ -1317,6 +1327,10 @@ def unlock_emails_job(data):
                 start_index = current_batch*batch_size
                 current_batch += 1
                 response['total_emails_fetched'] += resp['data']['count']
+                jobs.update_one(
+                    {"id": job_id},
+                    {"$set": {"latest_log": f"Processesing {i}th Company: {str(response)} | Completed Batch {current_batch}"}}
+                )
             else:
                 response['error'] = resp
                 jobs.update_one(
@@ -1373,7 +1387,7 @@ def fetch_employees_emails(request):
         'company_info': company_info,
         'locations': locations, 
         'auto': auto,
-        'titles': titles,
+        'job_titles': titles,
         'number_of_companies': number_of_companies,
         'curl_request': curl_request
     }

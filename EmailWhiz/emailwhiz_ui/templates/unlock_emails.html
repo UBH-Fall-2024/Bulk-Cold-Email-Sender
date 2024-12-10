@@ -303,7 +303,7 @@ function isfetched(){
           const response = await fetch(`/api/fetch-employees-emails/`, {
             method: "POST",
             headers: { "Content-Type": "application/json", 'X-CSRFToken': '{{ csrf_token }}', },
-            body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations }),
+            body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations, number_of_companies: numFetch}),
           });
           const result = await response.json();
           if("error" in result){
