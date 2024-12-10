@@ -1329,9 +1329,10 @@ def unlock_emails_job(data):
                 current_batch += 1
                 response['total_emails_fetched'] += resp['data']['count']
                 emails_count += resp['data']['count']
+                total_emails += emails_count
                 if emails_count >= 500:
                     
-                    total_emails += emails_count
+                    
                     jobs.update_one(
                         {"id": job_id},
                         {"$set": {"latest_log": f"Deep Sleep {i}th Company: {str(response)} Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Emails Crossed 500: {emails_count} | Total Emails Fetched: {total_emails}"}}
@@ -1356,7 +1357,7 @@ def unlock_emails_job(data):
             print("Sleep Started..", datetime.now())
             time.sleep(120)
             print("Sleep Ended..", datetime.now())
-            
+
         response["company"] = company_name
 
         jobs.update_one(
