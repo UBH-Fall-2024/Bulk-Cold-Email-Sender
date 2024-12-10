@@ -20,7 +20,7 @@ class AuthenticationMiddleware:
 
         # If the user is logged in and accesses login/register, redirect to dashboard
         if user_logged_in and request.path in allowed_paths:
-            return redirect('dashboard')  # Redirect logged-in users to the dashboard
+            return redirect('home')  # Redirect logged-in users to the dashboard
 
         response = self.get_response(request)
         return response

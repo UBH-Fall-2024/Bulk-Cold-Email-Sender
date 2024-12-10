@@ -408,3 +408,7 @@ def logout_view(request):
     """Handle user logout."""
     request.session.flush()
     return redirect("login")
+
+
+def view_jobs(request):
+    return render(request, 'jobs.html')
