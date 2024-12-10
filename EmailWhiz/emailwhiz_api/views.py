@@ -1318,7 +1318,7 @@ def unlock_emails_job(data):
             print("T2", employee_ids)
             company_name = company_info['name']
         
-        batch_size = 10
+        batch_size = 5
         batches = math.ceil(len(employee_ids)/batch_size)
         print("batches: ", batches)
         current_batch = 1
@@ -1346,10 +1346,22 @@ def unlock_emails_job(data):
                         
                         jobs.update_one(
                             {"id": job_id},
-                            {"$set": {"latest_log": f"Deep Sleep {i}th Company: {company_name} | {str(response)} Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Emails Crossed 500: {emails_count} | Total Emails Fetched: {total_emails}"}}
+                            {"$set": {"status": "deep_sleep", "latest_log": f"Deep Sleep {i}th Company: {company_name} | {str(response)} Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Emails Crossed 500: {emails_count} | Total Emails Fetched: {total_emails}"}}
                         )
                         print("Day Sleep Started.. 71400 Seconds", datetime.now())
-                        time.sleep(71400)
+                        sleep_time = 0
+                        while sleep_time < 71400:
+                            time.sleep(10)
+                            sleep_time += 10
+                            temp_job = jobs.find_one({"username": username, "status": "stopped"})
+                            if temp_job:
+                                jobs.update_one(
+                                    {"id": job_id},
+                                    {"$set": {"completed": i, "latest_log": f"Processed {i}th Company: {company_name} | {str(response)} |  Total Emails Fetched: {total_emails}"}}
+                                )
+                                return
+
+
                         emails_count = 0
                         print("Day Sleep Ended.. 71400 Seconds", datetime.now())
                     
