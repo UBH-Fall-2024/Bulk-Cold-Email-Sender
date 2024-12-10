@@ -1201,7 +1201,14 @@ def fetch_employees_emails_from_apollo(_data):
             return response_data
         contacts = response_data.get('contacts', [])
 
-
+        print("contacts: ", contacts)
+        if len(contacts) == 0:
+            result = apollo_emails_collection.delete_many({'id': {"$in": employee_ids}})
+            # Check the result
+            if result.deleted_count > 0:
+                print("Persons Deleted successfully.", employee_ids)
+                return {"success": False, "message": "Employees Deleted....", "operation": "delete", "data": {"employee_ids": employee_ids}}
+        
         emails_addition_count = 0
         for contact in contacts:
             employee_id = contact.get('person_id')
@@ -1248,6 +1255,7 @@ def unlock_emails_job(data):
         "status": "running",
         "id": job_id,
         "username": username,
+        "highlights": [],
         "created_at": datetime.now()  # Add created_at field
     }
     jobs.insert_one(job_document)
@@ -1273,7 +1281,8 @@ def unlock_emails_job(data):
             employee_details = apollo_emails_collection.find_one({
                 "email": "",
                 "titles": {"$in": titles},
-                "country": locations[0]
+                "country": locations[0],
+                "email_status": "verified"
             })
             print("G2", employee_details)
             print("employee_details: ", employee_details)
@@ -1294,7 +1303,8 @@ def unlock_emails_job(data):
                 "organization_id": company_id,
                 "email": "",
                 "titles": {"$in": titles},
-                "country": locations[0]
+                "country": locations[0],
+                "email_status": "verified"
             })
             print("G4", employee_ids)
 
@@ -1325,32 +1335,42 @@ def unlock_emails_job(data):
             total_api_calls += 1
             resp = fetch_employees_emails_from_apollo(_data)
             if 'success' in resp:
-                start_index = current_batch*batch_size
-                current_batch += 1
-                response['total_emails_fetched'] += resp['data']['count']
-                emails_count += resp['data']['count']
-                total_emails += emails_count
-                if emails_count >= 500:
+                if resp['success'] == True:
+                    start_index = current_batch*batch_size
                     
+                    response['total_emails_fetched'] += resp['data']['count']
+                    emails_count += resp['data']['count']
+                    total_emails += resp['data']['count']
+                    if emails_count >= 500:
+                        
+                        
+                        jobs.update_one(
+                            {"id": job_id},
+                            {"$set": {"latest_log": f"Deep Sleep {i}th Company: {company_name} | {str(response)} Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Emails Crossed 500: {emails_count} | Total Emails Fetched: {total_emails}"}}
+                        )
+                        print("Day Sleep Started.. 71400 Seconds", datetime.now())
+                        time.sleep(71400)
+                        emails_count = 0
+                        print("Day Sleep Ended.. 71400 Seconds", datetime.now())
                     
                     jobs.update_one(
                         {"id": job_id},
-                        {"$set": {"latest_log": f"Deep Sleep {i}th Company: {str(response)} Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Emails Crossed 500: {emails_count} | Total Emails Fetched: {total_emails}"}}
+                        {"$set": {"latest_log": f"Processesing {i}th Company: {company_name} | {str(response)} | Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Total Emails Fetched: {total_emails}"}}
                     )
-                    print("Day Sleep Started.. 71400 Seconds", datetime.now())
-                    time.sleep(71400)
-                    emails_count = 0
-                    print("Day Sleep Ended.. 71400 Seconds", datetime.now())
-                
-                jobs.update_one(
-                    {"id": job_id},
-                    {"$set": {"latest_log": f"Processesing {i}th Company: {str(response)} | Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Total Emails Fetched: {total_emails}"}}
-                )
+                else:
+                    jobs.update_one(
+                        {"id": job_id},
+                        {
+                         "$set": {"latest_log": f"Skipping {i}th Company Employees: {company_name} | {str(response)} | Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Total Emails Fetched: {total_emails}"},
+                         "$push": {"highlights": resp} 
+                        }
+                    )
+                current_batch += 1
             else:
                 response['error'] = resp
                 jobs.update_one(
                     {"id": job_id},
-                    {"$set": {"status": "error", "latest_log": f"Response: {str(response)} {str(response)} | Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Total Emails Fetched: {total_emails}"}}
+                    {"$set": {"status": "error", "latest_log": f"Company: {company_name} | Response: {str(response)} {str(response)} | Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Total Emails Fetched: {total_emails}"}}
                 )
                 return
 
@@ -1362,7 +1382,7 @@ def unlock_emails_job(data):
 
         jobs.update_one(
             {"id": job_id},
-            {"$set": {"completed": i, "latest_log": f"Processed {i}th Company: {str(response)} |  Total Emails Fetched: {total_emails}"}}
+            {"$set": {"completed": i, "latest_log": f"Processed {i}th Company: {company_name} | {str(response)} |  Total Emails Fetched: {total_emails}"}}
         )
         
         
