@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch Employee Emails</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="container mx-auto py-10 px-3 bg-white rounded-lg shadow-md">      
+        <div class="max-w-lg w-full bg-white p-6 py-10 px-12 rounded-lg shadow-md">
+          <h1 class="text-xl font-semibold text-gray-800 mb-4">Current Running Job</h1>
+          <div id="job-details" class="bg-gray-50 p-4 rounded border border-gray-300 text-gray-700">
+            <p>No job details available. Click the button below to fetch.</p>
+          </div>
+          <button 
+            id="fetch-job" 
+            class="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Fetch Running Job
+          </button>
+          <h2 class="text-lg font-semibold text-gray-800 mt-6">Job History</h2>
+          <div id="job-history" class="bg-gray-50 p-4 rounded border border-gray-300 text-gray-700 mt-2">
+            <p>No job history available. Click the button below to fetch.</p>
+          </div>
+          <button 
+            id="fetch-history" 
+            class="mt-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+          >
+            Fetch Job History
+          </button>
+        </div>
+        
+      <!-- </div> -->
+      
+      <script>
+       
+      document.getElementById('fetch-job').addEventListener('click', async () => {
+      const jobDetailsDiv = document.getElementById('job-details');
+      try {
+        const response = await fetch(`/api/get-running-job/`);
+        const data = await response.json();
+        console.log("data", data)
+        if ("error" in data) {
+          jobDetailsDiv.innerHTML = `<p class="text-red-500">${data.error}</p>`;
+        } else {
+          
+          jobDetailsDiv.innerHTML = `
+            <p><strong>Job Name:</strong> ${data.job_name}</p>
+            <p><strong>Total Tasks:</strong> ${data.total}</p>
+            <p><strong>Completed Tasks:</strong> ${data.completed}</p>
+            <p><strong>Latest Log:</strong> ${data.latest_log}</p>
+            <p><strong>Status:</strong> ${data.status}</p>
+            <p><strong>Created At:</strong> ${new Date(data.created_at).toLocaleString()}</p>
+          `;
+          
+        }
+      } catch (error) {
+        jobDetailsDiv.innerHTML = `<p class="text-red-500">Failed to fetch job details. Please try again later.</p>`;
+      }
+    });
+
+    document.getElementById('fetch-history').addEventListener('click', async () => {
+      const jobHistoryDiv = document.getElementById('job-history');
+      try {
+        const response = await fetch(`/api/get-job-history/`);
+        const data = await response.json();
+        if ("error" in data) {
+          jobHistoryDiv.innerHTML = `<p class="text-red-500">${data.error}</p>`;
+          
+        } else {
+          
+          if (data.jobs.length > 0) {
+            jobHistoryDiv.innerHTML = `
+              <ul class="space-y-2">
+                ${data.jobs.map(job => `
+                  <li class="p-2 bg-gray-100 rounded border">
+                    <p><strong>Job Name:</strong> ${job.job_name}</p>
+                    <p><strong>Completed Tasks:</strong> ${job.completed}/${job.total}</p>
+                    <p><strong>Latest Log:</strong> ${job.latest_log}</p>
+                    <p><strong>Status:</strong> ${job.status}</p>
+                    <p><strong>Created At:</strong> ${new Date(job.created_at).toLocaleString()}</p>
+                  </li>
+                `).join('')}
+              </ul>
+            `;
+          } else {
+            jobHistoryDiv.innerHTML = `<p>No job history available.</p>`;
+          }
+
+        }
+      } catch (error) {
+        jobHistoryDiv.innerHTML = `<p class="text-red-500">Failed to fetch job history. Please try again later.</p>`;
+      }
+    });
+      
+
+      </script>
+      
+</body>
+</html>

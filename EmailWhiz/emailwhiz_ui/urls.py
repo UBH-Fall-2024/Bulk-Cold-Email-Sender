@@ -30,7 +30,8 @@ urlpatterns = [
     
     path('scrape-employees-data/fetch-employees', views.fetch_employees_data, name='fetch_employees_data'),
     path('scrape-employees-data/unlock-employees-emails', views.unlock_emails, name='unlock_emails'),
-    path('apollo/send-cold-emails', views.send_cold_emails_through_apollo_emails, name='send_cold_emails_through_apollo_emails')
+    path('apollo/send-cold-emails', views.send_cold_emails_through_apollo_emails, name='send_cold_emails_through_apollo_emails'),
+     path('apollo/jobs', views.view_jobs, name='view_jobs'),
     
 ]
 
