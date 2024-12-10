@@ -4,8 +4,11 @@ from . import views
 urlpatterns = [
 
     path('add_resume/', views.add_resume, name='add_resume'),
+    path('logout/', views.logout_view, name='logout'),
     path('home/', views.home, name='home'),
+    path('', views.login_view, name='login'),
     path('login/', views.login_view, name='login'),
+    
     path('register/', views.register_view, name='register'),
     path('view_user_details/', views.view_user_details, name='view_user_details'),
     path('list-resumes/', views.list_resumes, name='list_resumes'),
@@ -27,7 +30,8 @@ urlpatterns = [
     
     path('scrape-employees-data/fetch-employees', views.fetch_employees_data, name='fetch_employees_data'),
     path('scrape-employees-data/unlock-employees-emails', views.unlock_emails, name='unlock_emails'),
-    path('apollo/send-cold-emails', views.send_cold_emails_through_apollo_emails, name='send_cold_emails_through_apollo_emails')
+    path('apollo/send-cold-emails', views.send_cold_emails_through_apollo_emails, name='send_cold_emails_through_apollo_emails'),
+     path('apollo/jobs', views.view_jobs, name='view_jobs'),
     
 ]
 

@@ -3,6 +3,9 @@ from . import views
 
 urlpatterns = [
 
+    # path('register/', views.register, name='api_register'),
+    # path('login/', views.login, name='api_login'),
+
     path('save_resume/', views.save_resume, name='save_resume'),
     path('send-emails/', views.send_emails, name='send_emails'),
     path('email-generator_post/', views.email_generator_post, name='email_generator_post'),
@@ -21,6 +24,7 @@ urlpatterns = [
     path('create-subject/',  views.create_subject, name='create_subject'),
     path('fetch-subjects/',  views.fetch_subjects, name='fetch_subjects'),
     
+    
     path('get-non-processed-companies/', views.get_non_processed_companies, name='get_non_processed_companies'),
     path('search-companies/', views.search_companies, name='search_companies'),
     path('fetch-employees/', views.fetch_employees, name='fetch_employees'),
@@ -30,6 +34,9 @@ urlpatterns = [
     path('employees-count/', views.employees_count, name='employees_count'),
     
     path('apollo/send-cold-emails-by-automation/', views.send_cold_emails_by_automation_through_apollo_emails, name='send_cold_emails_by_automation_through_apollo_emails'),
-    path('apollo/send-cold-emails-by-company/', views.send_cold_emails_by_company_through_apollo_emails, name='send_cold_emails_by_company_through_apollo_emails')
+    path('apollo/send-cold-emails-by-company/', views.send_cold_emails_by_company_through_apollo_emails, name='send_cold_emails_by_company_through_apollo_emails'),
+
+    path('get-running-job/', views.get_running_job, name='get_running_job'),
+    path('get-job-history/', views.get_job_history, name='get_job_history'),
 ]
 

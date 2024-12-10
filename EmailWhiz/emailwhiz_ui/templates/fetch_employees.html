@@ -211,11 +211,14 @@ function isfetched(){
         const jobTitles = jobTitlesInput.split(",").map((loc) => loc.trim());
         
 
-       
         // const selectedCompanies = Array.from(
         //   document.getElementById("companies-select").selectedOptions
         // ).map((option) => option.value);
         const total = selectedCompanies.length;
+        if(total > 1){
+          alert("Please Select only One Company");
+          return
+        }
         let processed = 0;
         document.getElementById("by-company-logs").innerHTML = '';
         document.getElementById("by-company-total").textContent = total;
@@ -226,21 +229,25 @@ function isfetched(){
           const response = await fetch(`/api/fetch-employees/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" ,'X-CSRFToken': '{{ csrf_token }}',},
-            body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations }),
+            body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations, number_of_companies: total }),
           });
           const result = await response.json();
+          if ("error" in result){
+              document.getElementById("auto-logs").textContent = `Error Occured: ${JSON.stringify(result)}\n`;
+              break;
+          }
           processed++;
           document.getElementById("by-company-processed").textContent = processed;
           document.getElementById("by-company-progress-bar").style.width = `${(processed / total) * 100}%`;
-          document.getElementById("by-company-logs").innerHTML += `<span>Processed company ${company.name}: ${JSON.stringify(result)} </span><br>`;
+          document.getElementById("by-company-logs").innerHTML += `Response: ${JSON.stringify(result)} </span><br>`;
           let tempCompany = company;
             // console.log(JSON.stringify(result), result["data"], typeof(result["data"]));
-          tempCompany.employees_count = result["data"]["total_employees_fetched"];
-          newEmployeesFetched += result["data"]["total_employees_fetched"];
+          // tempCompany.employees_count = result["data"]["total_employees_fetched"];
+          // newEmployeesFetched += result["total_employees_fetched"];
           tempSelectedCompanies.push(tempCompany)
           isEmployeesfetched = true;
         }
-        document.getElementById("new-employees-fetched-count").textContent = newEmployeesFetched;
+        // document.getElementById("new-employees-fetched-count").textContent = newEmployeesFetched;
         selectedCompanies = tempSelectedCompanies;
         updateSelectedCompaniesTable();
       }
@@ -276,22 +283,27 @@ function isfetched(){
         document.getElementById("auto-total").textContent = total;
         document.getElementById("auto-progress-section").classList.remove("hidden");
         newEmployeesFetched=0;
-        for (let i = 0; i < total; i++) {
+        
           const response = await fetch(`/api/fetch-employees/`, {
             method: "POST",
             headers: { "Content-Type": "application/json", 'X-CSRFToken': '{{ csrf_token }}', },
-            body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations }),
+            body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations, number_of_companies: total }),
           });
           const result = await response.json();
+          console.log("result: ", result)
+          if ("error" in result){
+              document.getElementById("auto-logs").textContent = `Error Occured: ${JSON.stringify(result)}\n`;
+              
+          }
           processed++;
           document.getElementById("auto-processed").textContent = processed;
           document.getElementById("auto-progress-bar").style.width = `${(processed / total) * 100}%`;
-          document.getElementById("auto-logs").textContent += `Processed automatically: ${JSON.stringify(result)}\n`;
-          newEmployeesFetched += result["data"]["total_employees_fetched"];
+          document.getElementById("auto-logs").textContent += `Response: ${JSON.stringify(result)}\n`;
+          // newEmployeesFetched += result["total_employees_fetched"];
           isEmployeesfetched = true;
         }
-        document.getElementById("new-employees-fetched-count").textContent = newEmployeesFetched;
-      }
+        // document.getElementById("new-employees-fetched-count").textContent = newEmployeesFetched;
+      
 // Add company to the selected list
 function addToSelected(companyId) {
   const company = companies.find((c) => c.id === companyId);

@@ -228,14 +228,19 @@ Response will appear here...
         }),
       });
 
-      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+      
 
       const data = await response.json();
+      console.log("data", data)
       if ('success' in data){
         totalCompaniesAddition += data['success']['companies_addition_count']
         logs.textContent += `Call ${i + 1}: `;
         logs.textContent += JSON.stringify(data) + "\n";
         totalCompaniesAdded.textContent = totalCompaniesAddition;
+      }
+      if ('error' in data){
+        logs.textContent = `Error Occured While Fetching ${i+1}th Company: ${JSON.stringify(data)}`;
+        break
       }
       
     } catch (error) {

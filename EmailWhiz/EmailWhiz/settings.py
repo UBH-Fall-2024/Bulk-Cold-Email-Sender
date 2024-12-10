@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'emailwhiz_ui',
     'emailwhiz_api'
+    # 'sslserver'
 ]
 
 
@@ -54,6 +55,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'EmailWhiz.auth_middleware.AuthenticationMiddleware'
 ]
 
 ROOT_URLCONF = 'EmailWhiz.urls'
