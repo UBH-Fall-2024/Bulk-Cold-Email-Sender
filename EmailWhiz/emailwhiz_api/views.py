@@ -1255,6 +1255,7 @@ def unlock_emails_job(data):
     if auto == False:
         number_of_companies = 1
     apollo_emails_collection = db['apollo_emails']
+    total_emails = 0
     for i in range(1, number_of_companies + 1):
         print(f"Starting {i}th Company", auto)
         print("Titles: ", titles)
@@ -1327,6 +1328,17 @@ def unlock_emails_job(data):
                 start_index = current_batch*batch_size
                 current_batch += 1
                 response['total_emails_fetched'] += resp['data']['count']
+                total_emails += resp['data']['count']
+                if total_emails >= 500:
+                    print("Day Sleep Started.. 26400 Seconds", datetime.now())
+                    jobs.update_one(
+                        {"id": job_id},
+                        {"$set": {"latest_log": f"Deep Sleep {i}th Company: {str(response)} | Completed Batch {current_batch} | Total Emails Crossed 500: {total_emails}"}}
+                    )
+                    time.sleep(26400)
+                    total_emails = 0
+                    print("Day Sleep Ended.. 26400 Seconds", datetime.now())
+                
                 jobs.update_one(
                     {"id": job_id},
                     {"$set": {"latest_log": f"Processesing {i}th Company: {str(response)} | Completed Batch {current_batch}"}}
