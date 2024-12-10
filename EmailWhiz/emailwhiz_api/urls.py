@@ -34,6 +34,9 @@ urlpatterns = [
     path('employees-count/', views.employees_count, name='employees_count'),
     
     path('apollo/send-cold-emails-by-automation/', views.send_cold_emails_by_automation_through_apollo_emails, name='send_cold_emails_by_automation_through_apollo_emails'),
-    path('apollo/send-cold-emails-by-company/', views.send_cold_emails_by_company_through_apollo_emails, name='send_cold_emails_by_company_through_apollo_emails')
+    path('apollo/send-cold-emails-by-company/', views.send_cold_emails_by_company_through_apollo_emails, name='send_cold_emails_by_company_through_apollo_emails'),
+
+    path('get-running-job/', views.get_running_job, name='get_running_job'),
+    path('get-job-history/', views.get_job_history, name='get_job_history'),
 ]
 

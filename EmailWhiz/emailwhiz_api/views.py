@@ -1,5 +1,7 @@
 
+from concurrent.futures import ThreadPoolExecutor
 import copy
+import uuid
 from django.shortcuts import render
 from django.http import HttpResponse
 from PyPDF2 import PdfReader
@@ -1077,8 +1079,8 @@ def fetch_employees_data_from_apollo(_data):
 
     except Exception as e:
         traceback.print_exc()
-        return {'error': str(e)}
-    
+        return {'error': str(e)} 
+
 @csrf_exempt
 def fetch_employees(request):
 
@@ -1177,16 +1179,16 @@ def fetch_employees_emails_from_apollo(_data):
     curl_request = _data['curl_request']
 
     if not curl_request:
-        return JsonResponse({'error': f"No CURL request found for Employees API"}, status=404)
+        return {'error': f"No CURL request found for Employees API"}
 
     try:
         # Parse the curl command
         url, headers, data = parse_curl_command(curl_request)
         
         if not url:
-            return JsonResponse({'error': "Invalid CURL request: URL missing"}, status=400)
+            return {'error': "Invalid CURL request: URL missing"}
 
-    
+        print("Body 1: ", data)
         data = replace_value_by_key(data, 'entity_ids', employee_ids)
         # print("Body2: ", data)
         response = requests.post(url, headers=headers, data=str(data))
@@ -1225,82 +1227,180 @@ def fetch_employees_emails_from_apollo(_data):
         traceback.print_exc()
         return {'error': str(e)}
 
+
+
+def unlock_emails_job(data):
+    username = data['username']
+    locations = data.get('locations', None)
+    auto = data.get("auto", False)
+    titles = data.get("job_titles", None)
+    number_of_companies = data.get("number_of_companies")
+    company_info = data.get("company_info")
+    curl_request = data.get("curl_request")
+
+    jobs = db['jobs']
+    job_id = str(uuid.uuid4())
+    job_document = {
+        "job_name": "unlock_emails_job",
+        "total": number_of_companies,
+        "completed": 0,
+        "latest_log": "Started",
+        "status": "running",
+        "id": job_id,
+        "username": username,
+        "created_at": datetime.now()  # Add created_at field
+    }
+    jobs.insert_one(job_document)
+
+    if auto == False:
+        number_of_companies = 1
+    apollo_emails_collection = db['apollo_emails']
+    for i in range(1, number_of_companies + 1):
+        print(f"Starting {i}th Company", auto)
+        print("Titles: ", titles)
+        print("Locations: ", locations)
+
+        response = {'total_emails_fetched': 0}
+        if auto:
+            print("G1")
+            print("Titles: ", titles)
+            print("Locations: ", locations)
+
+            employee_details = apollo_emails_collection.find_one({
+                "email": "",
+                "titles": {"$in": titles},
+                "country": locations[0]
+            })
+            print("G2", employee_details)
+            print("employee_details: ", employee_details)
+            
+            if not employee_details:
+                jobs.update_one(
+                    {"id": job_id},
+                    {"$set": {"status": "error", "latest_log": str({"error": "All the Emails Have been fetched in our Database"})}}
+                )
+                return
+            print("G3")
+            company_id = employee_details["organization_id"]
+            # print("company_id: ", company_id)
+            company_details = companies_collection.find_one({"id": company_id})
+            company_name = company_details["name"]
+            print("company_details", company_details)
+            employee_ids = apollo_emails_collection.distinct("id", {
+                "organization_id": company_id,
+                "email": "",
+                "titles": {"$in": titles},
+                "country": locations[0]
+            })
+            print("G4", employee_ids)
+
+        else:
+            employee_ids = apollo_emails_collection.distinct("id", {
+                "organization_id": company_info['id'],
+                "email": "",
+                "titles": {"$in": titles},
+                "country": locations[0]
+            })
+            print("T2", employee_ids)
+            company_name = company_info['name']
+        
+        batch_size = 2
+        batches = math.ceil(len(employee_ids)/2)
+        print("batches: ", batches)
+        current_batch = 1
+        start_index = 0
+        _data = {
+            'curl_request': curl_request
+        }
+        while current_batch<=batches:
+            if current_batch == batches:
+                _data['employee_ids'] = employee_ids[start_index: ]
+            else:
+                _data['employee_ids'] = employee_ids[start_index: current_batch*batch_size]
+
+        
+            resp = fetch_employees_emails_from_apollo(_data)
+            print("Sleep Started..", datetime.now())
+            time.sleep(120)
+            print("Sleep Ended..", datetime.now())
+            if 'success' in resp:
+                start_index = current_batch*batch_size
+                current_batch += 1
+                response['total_emails_fetched'] += resp['data']['count']
+                jobs.update_one(
+                    {"id": job_id},
+                    {"$set": {"latest_log": f"Processesing {i}th Company: {str(response)} | Completed Batch {current_batch}"}}
+                )
+            else:
+                response['error'] = resp
+                jobs.update_one(
+                    {"id": job_id},
+                    {"$set": {"status": "error", "latest_log": str(response)}}
+                )
+                return
+        
+        response["company"] = company_name
+
+        jobs.update_one(
+            {"id": job_id},
+            {"$set": {"completed": i, "latest_log": f"Processed {i}th Company: {str(response)}"}}
+        )
+        
+        
+    # Mark the job as completed
+    jobs.update_one(
+        {"id": job_id},
+        {"$set": {"status": "completed", "latest_log": "Job completed. All the Companies have been processed"}}
+    )
+    print(f"Job {job_id} completed")
+
 def fetch_employees_emails(request):
+    jobs = db['jobs']
+    details = get_user_details(request.session.get('username'))
+    username = details['username']
     data = json.loads(request.body)
     company_info = data.get("company_id", None)
     # print("company_id: ", company_info)
     locations = data.get('locations', None)
     auto = data.get("auto", False)
     titles = data.get("job_titles", None)
+    number_of_companies = data.get("number_of_companies", 1)
+
     print("loctions, job_titles", locations, titles)
+
     if titles is None or locations is None:
         return JsonResponse({"error": 'Job Titles or Locations are Missing'})
-    details = get_user_details(request.session.get('username'))
-    username = details['username']
-    user_entry = apollo_apis_curl_collection.find_one({'username': username})
-    api_details = user_entry.get('apis', {})
-
+    entry = apollo_apis_curl_collection.find_one({'username': username})
+    api_details = entry.get('apis', {})
     curl_request = api_details.get('api3', {}).get('curl_request')
-
-    _data = {
-         'curl_request': curl_request
+    
+    
+    
+    existing_job = jobs.find_one({"username": username, "status": "running"})
+    if existing_job:
+        return JsonResponse({
+            "error": f"A job of type 'f{existing_job['id']}' is already running for this user. Please wait for it to complete."
+        })
+    executor = ThreadPoolExecutor(max_workers=5)
+    temp_data = {
+        'username': username, 
+        'company_info': company_info,
+        'locations': locations, 
+        'auto': auto,
+        'job_titles': titles,
+        'number_of_companies': number_of_companies,
+        'curl_request': curl_request
     }
-    response = {'total_emails_fetched': 0}
-    if auto:
-        
-        employee_details = apollo_emails_collection.find_one({"email": ''})
-        # print("employee_details: ", employee_details)
-        if not employee_details:
-            return JsonResponse({"error": "All the Emails Have been fetched in our Database"})
-        company_id = employee_details["organization_id"]
-        # print("company_id: ", company_id)
-        company_details = companies_collection.find_one({"id": company_id})
-        company_name = company_details["name"]
-        # print("company_id3", company_id)
-        employee_ids = apollo_emails_collection.distinct("id", {
-            "organization_id": company_id,
-            "email": "",
-            "titles": titles[0],
-            "country": locations[0]
-        })
+    executor.submit(unlock_emails_job, temp_data)
 
-    else:
-        employee_ids = apollo_emails_collection.distinct("id", {
-            "organization_id": company_info['id'],
-            "email": "",
-            "titles": titles,
-            "country": locations
-        })
-        company_name = company_info['name']
-    batches = math.ceil(len(employee_ids)/10)
-    # batches = 1
-    batch_size = 10
-    # batch_size = 1
-    print("batches: ", batches)
-    current_batch = 1
-    start_index = 0
-    while current_batch<=batches:
-        if current_batch == batches:
-            _data['employee_ids'] = employee_ids[start_index: ]
-        else:
-            _data['employee_ids'] = employee_ids[start_index: current_batch*batch_size]
+    # Return an immediate response
+    return JsonResponse({"success": True, "message": "Job has started"})
 
     
-        resp = fetch_employees_emails_from_apollo(_data)
-        print("Sleep Started..", datetime.now())
-        time.sleep(80)
-        print("Sleep Ended..", datetime.now())
-        if 'success' in resp:
-            
-            start_index = current_batch*batch_size
-            current_batch += 1
-            response['total_emails_fetched'] += resp['data']['count']
-        else:
-            response['error'] = resp
-            break
     
-    response["company"] = company_name
-    return JsonResponse(response)
+
+    
+    
 
 
 def send_cold_emails_by_automation_through_apollo_emails(request):
@@ -1586,3 +1686,26 @@ def fetch_subjects(request):
         return JsonResponse({"success": True, "subjects": subjects})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)})
+    
+
+
+def get_running_job(request):
+    username = request.session.get('username')  # Replace with actual user retrieval logic
+    jobs = db['jobs']
+    # Find the running job for the user
+    running_job = jobs.find_one({"username": username, "status": "running"}, {"_id": 0})
+    if running_job:
+        return JsonResponse(running_job)
+    else:
+        return JsonResponse({"error": "No running job found for the user."}, status=404)
+    
+def get_job_history(request):
+    username = request.session.get('username')  # Replace with actual user retrieval logic
+    jobs = db['jobs']
+    # Fetch all jobs for the user, sorted by most recent first
+    job_history = list(jobs.find({"username": username, "status": "completed"}, {"_id": 0}).sort("created_at", -1))
+
+    if job_history:
+        return JsonResponse({"jobs": job_history})
+    else:
+        return JsonResponse({"error": "No job history found for the user."}, status=404)
