@@ -405,8 +405,12 @@ function removeFromSelected(companyId) {
       const jobDetailsDiv = document.getElementById('job-details');
       try {
         const response = await fetch(`/api/get-running-job/`);
-        if (response.ok) {
-          const data = await response.json();
+        const data = await response.json();
+        console.log("data", data)
+        if ("error" in data) {
+          jobDetailsDiv.innerHTML = `<p class="text-red-500">${data.error}</p>`;
+        } else {
+          
           jobDetailsDiv.innerHTML = `
             <p><strong>Job Name:</strong> ${data.job_name}</p>
             <p><strong>Total Tasks:</strong> ${data.total}</p>
@@ -415,9 +419,7 @@ function removeFromSelected(companyId) {
             <p><strong>Status:</strong> ${data.status}</p>
             <p><strong>Created At:</strong> ${new Date(data.created_at).toLocaleString()}</p>
           `;
-        } else {
-          const error = await response.json();
-          jobDetailsDiv.innerHTML = `<p class="text-red-500">${error.error}</p>`;
+          
         }
       } catch (error) {
         jobDetailsDiv.innerHTML = `<p class="text-red-500">Failed to fetch job details. Please try again later.</p>`;
@@ -428,8 +430,12 @@ function removeFromSelected(companyId) {
       const jobHistoryDiv = document.getElementById('job-history');
       try {
         const response = await fetch(`/api/get-job-history/`);
-        if (response.ok) {
-          const data = await response.json();
+        const data = await response.json();
+        if ("error" in data) {
+          jobHistoryDiv.innerHTML = `<p class="text-red-500">${data.error}</p>`;
+          
+        } else {
+          
           if (data.jobs.length > 0) {
             jobHistoryDiv.innerHTML = `
               <ul class="space-y-2">
@@ -447,9 +453,7 @@ function removeFromSelected(companyId) {
           } else {
             jobHistoryDiv.innerHTML = `<p>No job history available.</p>`;
           }
-        } else {
-          const error = await response.json();
-          jobHistoryDiv.innerHTML = `<p class="text-red-500">${error.error}</p>`;
+
         }
       } catch (error) {
         jobHistoryDiv.innerHTML = `<p class="text-red-500">Failed to fetch job history. Please try again later.</p>`;

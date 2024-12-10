@@ -1254,9 +1254,11 @@ def unlock_emails_job(data):
 
     if auto == False:
         number_of_companies = 1
+    
     apollo_emails_collection = db['apollo_emails']
     total_emails = 0
     emails_count = 0
+    total_api_calls = 0
     for i in range(1, number_of_companies + 1):
         print(f"Starting {i}th Company", auto)
         print("Titles: ", titles)
@@ -1320,39 +1322,41 @@ def unlock_emails_job(data):
             else:
                 _data['employee_ids'] = employee_ids[start_index: current_batch*batch_size]
 
-        
+            total_api_calls += 1
             resp = fetch_employees_emails_from_apollo(_data)
-            print("Sleep Started..", datetime.now())
-            time.sleep(300)
-            print("Sleep Ended..", datetime.now())
             if 'success' in resp:
                 start_index = current_batch*batch_size
                 current_batch += 1
                 response['total_emails_fetched'] += resp['data']['count']
                 emails_count += resp['data']['count']
                 if emails_count >= 500:
-                    print("Day Sleep Started.. 26400 Seconds", datetime.now())
+                    
                     total_emails += emails_count
                     jobs.update_one(
                         {"id": job_id},
-                        {"$set": {"latest_log": f"Deep Sleep {i}th Company: {str(response)} Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Emails Crossed 500: {emails_count} | Total Emails Fetched: {total_emails}"}}
+                        {"$set": {"latest_log": f"Deep Sleep {i}th Company: {str(response)} Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Emails Crossed 500: {emails_count} | Total Emails Fetched: {total_emails}"}}
                     )
-                    time.sleep(26400)
+                    print("Day Sleep Started.. 71400 Seconds", datetime.now())
+                    time.sleep(71400)
                     emails_count = 0
-                    print("Day Sleep Ended.. 26400 Seconds", datetime.now())
+                    print("Day Sleep Ended.. 71400 Seconds", datetime.now())
                 
                 jobs.update_one(
                     {"id": job_id},
-                    {"$set": {"latest_log": f"Processesing {i}th Company: {str(response)} | Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total Emails Fetched: {total_emails}"}}
+                    {"$set": {"latest_log": f"Processesing {i}th Company: {str(response)} | Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Total Emails Fetched: {total_emails}"}}
                 )
             else:
                 response['error'] = resp
                 jobs.update_one(
                     {"id": job_id},
-                    {"$set": {"status": "error", "latest_log": str(response)}}
+                    {"$set": {"status": "error", "latest_log": f"Response: {str(response)} {str(response)} | Total Employees: {len(employee_ids)} | Batch Size: {batch_size} | Completed Batch {current_batch} | Total API Calls: {total_api_calls} | Total Emails Fetched: {total_emails}"}}
                 )
                 return
-        
+
+            print("Sleep Started..", datetime.now())
+            time.sleep(120)
+            print("Sleep Ended..", datetime.now())
+            
         response["company"] = company_name
 
         jobs.update_one(
@@ -1711,7 +1715,7 @@ def get_running_job(request):
     if running_job:
         return JsonResponse(running_job)
     else:
-        return JsonResponse({"error": "No running job found for the user."}, status=404)
+        return JsonResponse({"error": "No running job found for the user."})
     
 def get_job_history(request):
     username = request.session.get('username')  # Replace with actual user retrieval logic
@@ -1722,4 +1726,4 @@ def get_job_history(request):
     if job_history:
         return JsonResponse({"jobs": job_history})
     else:
-        return JsonResponse({"error": "No job history found for the user."}, status=404)
+        return JsonResponse({"error": "No job history found for the user."})
