@@ -1003,8 +1003,8 @@ def fetch_employees_data_from_apollo(_data):
             print("R2: Request Sent: ", data)
             # Perform the HTTP request
             response = requests.post(url, headers=headers, data=str(data))
-            # print("R2: ", response.__dict__)
-            if response.status_code == 401: 
+            print("R2: ", response.__dict__)
+            if response.status_code in [401, 403]: 
                 return {"error": response.__dict__["_content"].decode('utf-8')}
             print("R2 Response Code: ", response.status_code)
             response_data = response.json()
@@ -1842,10 +1842,15 @@ def fetch_subjects(request):
 def get_running_job(request):
     username = request.session.get('username')  # Replace with actual user retrieval logic
     jobs = db['jobs']
+    data = json.loads(request.body)
+    admin_view = data.get('admin_view', False)
     # Find the running job for the user
-    running_job = jobs.find_one({"username": username, "status": "running"}, {"_id": 0})
-    if running_job:
-        return JsonResponse(running_job)
+    if admin_view:
+        running_jobs = list(jobs.find({"status": "running"}, {"_id": 0}))
+    else:
+        running_jobs = list(jobs.find({"username": username, "status": "running"}, {"_id": 0}))
+    if running_jobs:
+        return JsonResponse({"jobs": running_jobs})
     else:
         return JsonResponse({"error": "No running job found for the user."})
     
@@ -1853,7 +1858,12 @@ def get_job_history(request):
     username = request.session.get('username')  # Replace with actual user retrieval logic
     jobs = db['jobs']
     # Fetch all jobs for the user, sorted by most recent first
-    job_history = list(jobs.find({"username": username}, {"_id": 0}).sort("created_at", -1))
+    data = json.loads(request.body)
+    admin_view = data.get('admin_view', False)
+    if admin_view:
+        job_history = list(jobs.find({}, {"_id": 0}).sort("created_at", -1))
+    else:
+        job_history = list(jobs.find({"username": username}, {"_id": 0}).sort("created_at", -1))
 
     if job_history:
         return JsonResponse({"jobs": job_history})

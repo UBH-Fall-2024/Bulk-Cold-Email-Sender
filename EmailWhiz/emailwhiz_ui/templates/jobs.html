@@ -9,7 +9,14 @@
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
     <div class="container mx-auto py-10 px-3 bg-white rounded-lg shadow-md">      
         <div class="max-w-lg w-full bg-white p-6 py-10 px-12 rounded-lg shadow-md">
+         
           <h1 class="text-xl font-semibold text-gray-800 mb-4">Current Running Job</h1>
+          <div class="flex items-center bg-gray-50 shadow-sm rounded-md p-3">
+            <label class="text-gray-600">
+                <input type="checkbox"  id="admin-view" class="mr-2">
+                Enable Admin View
+            </label>
+        </div>
           <div id="job-details" class="bg-gray-50 p-4 rounded border border-gray-300 text-gray-700">
             <p>No job details available. Click the button below to fetch.</p>
           </div>
@@ -29,30 +36,49 @@
           >
             Fetch Job History
           </button>
+
         </div>
         
-      <!-- </div> -->
+      </div>
       
       <script>
-       
+      let isAdminViewEnabled = false;
+      
+      document.getElementById('admin-view').addEventListener('click', async () => {
+        isAdminViewEnabled = !isAdminViewEnabled;
+    });
       document.getElementById('fetch-job').addEventListener('click', async () => {
       const jobDetailsDiv = document.getElementById('job-details');
       try {
-        const response = await fetch(`/api/get-running-job/`);
+        const response = await fetch(`/api/get-running-job/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", 'X-CSRFToken': '{{ csrf_token }}', },
+            body: JSON.stringify({ admin_view: isAdminViewEnabled}),
+          });
         const data = await response.json();
         console.log("data", data)
         if ("error" in data) {
           jobDetailsDiv.innerHTML = `<p class="text-red-500">${data.error}</p>`;
         } else {
-          
-          jobDetailsDiv.innerHTML = `
-            <p><strong>Job Name:</strong> ${data.job_name}</p>
-            <p><strong>Total Tasks:</strong> ${data.total}</p>
-            <p><strong>Completed Tasks:</strong> ${data.completed}</p>
-            <p><strong>Latest Log:</strong> ${data.latest_log}</p>
-            <p><strong>Status:</strong> ${data.status}</p>
-            <p><strong>Created At:</strong> ${new Date(data.created_at).toLocaleString()}</p>
-          `;
+            if (data.jobs.length > 0) {
+                jobDetailsDiv.innerHTML = `
+              <ul class="space-y-2">
+                ${data.jobs.map(job => `
+                  <li class="p-2 bg-gray-100 rounded border">
+                    <p><strong>Job Name:</strong> ${job.job_name}</p>
+                    <p><strong>Completed Tasks:</strong> ${job.completed}/${job.total}</p>
+                    <p><strong>Latest Log:</strong> ${job.latest_log}</p>
+                    <p><strong>Status:</strong> ${job.status}</p>
+                    <p><strong>Highlights:</strong> ${job.highlights}</p>
+                    <p><strong>Username:</strong> ${job.username}</p>
+                    <p><strong>Created At:</strong> ${new Date(job.created_at).toLocaleString()}</p>
+                  </li>
+                `).join('')}
+              </ul>
+            `;
+          } else {
+            jobDetailsDiv.innerHTML = `<p>No job history available.</p>`;
+          }
           
         }
       } catch (error) {
@@ -63,7 +89,11 @@
     document.getElementById('fetch-history').addEventListener('click', async () => {
       const jobHistoryDiv = document.getElementById('job-history');
       try {
-        const response = await fetch(`/api/get-job-history/`);
+        const response = await fetch(`/api/get-job-history/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", 'X-CSRFToken': '{{ csrf_token }}', },
+            body: JSON.stringify({ admin_view: isAdminViewEnabled}),
+          });
         const data = await response.json();
         if ("error" in data) {
           jobHistoryDiv.innerHTML = `<p class="text-red-500">${data.error}</p>`;
@@ -79,6 +109,8 @@
                     <p><strong>Completed Tasks:</strong> ${job.completed}/${job.total}</p>
                     <p><strong>Latest Log:</strong> ${job.latest_log}</p>
                     <p><strong>Status:</strong> ${job.status}</p>
+                    <p><strong>Highlights:</strong> ${job.highlights}</p>
+                    <p><strong>Username:</strong> ${job.username}</p>
                     <p><strong>Created At:</strong> ${new Date(job.created_at).toLocaleString()}</p>
                   </li>
                 `).join('')}
