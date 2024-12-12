@@ -69,7 +69,7 @@
                     <p><strong>Completed Tasks:</strong> ${job.completed}/${job.total}</p>
                     <p><strong>Latest Log:</strong> ${job.latest_log}</p>
                     <p><strong>Status:</strong> ${job.status}</p>
-                    <p><strong>Highlights:</strong> ${job.highlights}</p>
+                    <p><strong>Highlights:</strong> ${job.highlights ? JSON.stringify(job.highlights): 'N/A'}</p>
                     <p><strong>Username:</strong> ${job.username}</p>
                     <p><strong>Created At:</strong> ${new Date(job.created_at).toLocaleString()}</p>
                   </li>
@@ -109,7 +109,7 @@
                     <p><strong>Completed Tasks:</strong> ${job.completed}/${job.total}</p>
                     <p><strong>Latest Log:</strong> ${job.latest_log}</p>
                     <p><strong>Status:</strong> ${job.status}</p>
-                    <p><strong>Highlights:</strong> ${job.highlights}</p>
+                    <p><strong>Highlights:</strong> ${job.highlights ? JSON.stringify(job.highlights): 'N/A'}</p>
                     <p><strong>Username:</strong> ${job.username}</p>
                     <p><strong>Created At:</strong> ${new Date(job.created_at).toLocaleString()}</p>
                   </li>
