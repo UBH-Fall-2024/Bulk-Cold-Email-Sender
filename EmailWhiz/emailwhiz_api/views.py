@@ -1004,7 +1004,7 @@ def fetch_employees_data_from_apollo(_data):
             # Perform the HTTP request
             response = requests.post(url, headers=headers, data=str(data))
             print("R2: ", response.__dict__)
-            if response.status_code in [401, 403]: 
+            if response.status_code not in [200]: 
                 return {"error": response.__dict__["_content"].decode('utf-8')}
             print("R2 Response Code: ", response.status_code)
             response_data = response.json()
@@ -1569,32 +1569,40 @@ def send_cold_emails_by_automation_through_apollo_emails(request):
         if selected_subject:
             temp_subject = subject_collection.find_one({"username": username}, {"_id": 0, "subject_title": 1, "subject_content": 1})
             # print("subject: ", temp_subject)
-        employees = apollo_emails_collection.find({
+        employees = list(apollo_emails_collection.find({
             "titles": {"$in": job_titles},
             "country": {"$in": locations},
             "email": {"$exists": True, "$ne": ""},
             # "email_status": "verified"
-            })
-
+            }))
+        print("len(employees): ", len(employees))
         # Filter employees whose entries are not in apollo_emails_sent_history for the target_role
         employee_details = None
+        for employee in list(employees):
+            print("heroic: ", employee, type(employee))
+            break
         for employee in employees:
+            # print("employee: ", employee)
             existing_history = apollo_emails_sent_history_collection.find_one({
                 "person_id": employee["id"],
                 "organization_id": employee["organization_id"],
                 "emails.target_role": target_role,
             })
+
             if not existing_history:
+                # print("Hurrah: ", employee)
                 employee_details = employee
                 break
         if not employee_details:
             return JsonResponse({"error": f"Unable to send Emails as None Emails are Filtered according to your input or All the Emails for your input have been already sent OR There are No Emails which are Unlocked.", "count": 0})
         
+        print(employee_details, len(employee_details))
         receiver_first_name = employee_details["first_name"]
         receiver_last_name = employee_details["last_name"]
         employee_email = employee_details["email"]
         organization_id = employee_details["organization_id"]
         company_details = companies_collection.find_one({"id": organization_id})
+        print("organization_id: ", organization_id, employee_details)
         company_name = company_details["name"]
         
         existing_email_history = apollo_emails_sent_history_collection.find_one(
@@ -1629,11 +1637,14 @@ def send_cold_emails_by_automation_through_apollo_emails(request):
         resume_path = os.path.join(settings.MEDIA_ROOT, username, 'resumes', resume_name)
 
         personalized_message = content.format(first_name=receiver_first_name, last_name=receiver_last_name, email=employee_email, company_name=company_name, designation=target_role)
+        # employee_email = 'cavisoy488@bawsny.com'
+
         send_email(details['gmail_id'], details['gmail_in_app_password'], employee_email, subject, personalized_message, resume_path)
         time.sleep(0.25)
         existing_entry = apollo_emails_sent_history_collection.find_one(
-            {"person_id": employee_details["id"], "organization_id": organization_id}
+            {"person_id": employee_details["id"], "organization_id": organization_id, "username": username}
         )
+
 
         new_email_entry = {
             "subject": subject,
@@ -1645,7 +1656,7 @@ def send_cold_emails_by_automation_through_apollo_emails(request):
         if existing_entry:
             # Append the new email entry to the existing emails array
             apollo_emails_sent_history_collection.update_one(
-                {"_id": existing_entry["_id"]},
+                {"_id": existing_entry["_id"], "username": username},
                 {"$push": {"emails": new_email_entry}}
             )
             print("Entry Exist, We have started pushing.....")
@@ -1657,6 +1668,8 @@ def send_cold_emails_by_automation_through_apollo_emails(request):
                 "company": company_name,
                 "organization_id": organization_id,
                 "emails": [new_email_entry],
+                "sender_email": details['gmail_id'],
+                "username": username
             }
             apollo_emails_sent_history_collection.insert_one(email_history_entry)
 
@@ -1869,3 +1882,4 @@ def get_job_history(request):
         return JsonResponse({"jobs": job_history})
     else:
         return JsonResponse({"error": "No job history found for the user."})
+    

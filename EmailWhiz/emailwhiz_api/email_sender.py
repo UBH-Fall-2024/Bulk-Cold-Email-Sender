@@ -34,6 +34,7 @@ def send_email(sender_email, sender_password, recipient_email, subject, message,
     """
     
     logger.info(f"Sending email to: {recipient_email}")
+    print(f"Sending email to: {recipient_email}")
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
@@ -56,11 +57,14 @@ def send_email(sender_email, sender_password, recipient_email, subject, message,
                 resume_attachment = MIMEApplication(file.read(), Name=resume_filename)
             resume_attachment['Content-Disposition'] = f'attachment; filename="{resume_filename}"'
             msg.attach(resume_attachment)
-        
-        server.sendmail(sender_email, recipient_email, msg.as_string())
-        logger.info(f"Email sent successfully to {recipient_email}")
-
+        # print("sender_email, recipient_email, msg: ", sender_email, recipient_email, msg)
+        res = server.sendmail(sender_email, recipient_email, msg.as_string())
+        logger.info(f"Email sent successfully to {recipient_email}: {res}")
+        print(f"Email sent successfully to {recipient_email}: {res}")
         server.quit()
+        
+        return {"success": True}
     except Exception as e:
         logger.error("Error sending email:", exc_info=True)
+        return {"error": f"{e}"}
         raise e
