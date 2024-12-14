@@ -41,6 +41,12 @@
                 class="w-full p-2 border rounded mb-2" 
                 placeholder="Enter Employee Job Titles (e.g., Senior Recruiter,Technical Recruiter)" 
             />
+            <div class="flex items-center bg-gray-50 shadow-sm rounded-md p-3">
+              <label class="text-gray-600">
+                  <input type="checkbox"  id="search_filter_titles" class="mr-2">
+                  Use this filter?
+              </label>
+          </div>
         </div>
         <!-- Input for Locations -->
         <div class="mb-6 hidden" id="employee-locations-class">
@@ -51,6 +57,12 @@
               class="w-full p-2 border rounded mb-2"
               placeholder="Enter locations (e.g., United States, India)"
             />
+            <div class="flex items-center bg-gray-50 shadow-sm rounded-md p-3">
+              <label class="text-gray-600">
+                  <input type="checkbox"  id="search_filter_locations" class="mr-2">
+                  Use this filter?
+              </label>
+          </div>
           </div>
         <!-- Fetch By Company Section -->
         <div id="fetch-by-company-section" class="hidden">
@@ -168,13 +180,29 @@
       let newEmailslFetched = 0;
       let unlockedEmails = 0;
       let companies = []; // All companies fetched
-let selectedCompanies = []; 
+      let selectedCompanies = []; 
+      let searchFilters = [];
+      let isEmailsfetched = false;
+      function isfetched(){
+          return isEmailsfetched;
+      }
 
-let isEmailsfetched = false;
-function isfetched(){
-    return isEmailsfetched;
-}
-// Selected companies for processing
+      document.getElementById('search_filter_titles').addEventListener('click', async (event) => {
+        console.log("Event: ", event)
+        if (searchFilters.includes("titles")) {
+            searchFilters = searchFilters.filter(filter => filter !== "titles");
+        } else {
+            searchFilters.push("titles");
+        }       
+      });
+      document.getElementById('search_filter_locations').addEventListener('click', async (event) => {
+        if (searchFilters.includes("locations")) {
+            searchFilters = searchFilters.filter(filter => filter !== "locations");
+        } else {
+            searchFilters.push("locations");
+        }
+      });
+      // Selected companies for processing
       // Function to update the count summary
       async function updateEmailsCountSummary() {
         const response = await fetch("/api/apollo-emails-count");
@@ -245,7 +273,7 @@ function isfetched(){
           const response = await fetch(`/api/fetch-employees-emails/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" ,'X-CSRFToken': '{{ csrf_token }}',},
-            body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations }),
+            body: JSON.stringify({ company_id: company, job_titles: jobTitles, locations: locations, search_filters: searchFilters }),
           });
           const result = await response.json();
           if("error" in result){
@@ -303,7 +331,7 @@ function isfetched(){
           const response = await fetch(`/api/fetch-employees-emails/`, {
             method: "POST",
             headers: { "Content-Type": "application/json", 'X-CSRFToken': '{{ csrf_token }}', },
-            body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations, number_of_companies: numFetch}),
+            body: JSON.stringify({ auto: true, job_titles: jobTitles, locations: locations, number_of_companies: numFetch, search_filters: searchFilters}),
           });
           const result = await response.json();
           if("error" in result){
@@ -395,7 +423,7 @@ function removeFromSelected(companyId) {
     )
     .join("");
 }
-      
+
       // Update counts on load
       updateEmailsCountSummary();
 
@@ -442,7 +470,11 @@ function removeFromSelected(companyId) {
     document.getElementById('fetch-history').addEventListener('click', async () => {
       const jobHistoryDiv = document.getElementById('job-history');
       try {
-        const response = await fetch(`/api/get-job-history/`);
+        const response = await fetch(`/api/get-job-history/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", 'X-CSRFToken': '{{ csrf_token }}', },
+            body: JSON.stringify({ admin_view: false}),
+          });
         const data = await response.json();
         if ("error" in data) {
           jobHistoryDiv.innerHTML = `<p class="text-red-500">${data.error}</p>`;
@@ -471,6 +503,7 @@ function removeFromSelected(companyId) {
 
         }
       } catch (error) {
+        console.log("error: ", error)
         jobHistoryDiv.innerHTML = `<p class="text-red-500">Failed to fetch job history. Please try again later.</p>`;
       }
     });

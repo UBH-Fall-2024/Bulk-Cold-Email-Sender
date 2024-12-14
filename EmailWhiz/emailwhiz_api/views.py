@@ -971,7 +971,7 @@ def fetch_employees_data_from_apollo(_data):
 
     organization_id, person_titles, person_locations = _data['organization_id'],  _data['person_titles'],  _data['person_locations']
     
-
+    SEARCH_FILTERS = _data['search_filters']
     curl_request = _data['curl_request']
     # print("curl_request: ", curl_request)
 
@@ -1088,6 +1088,7 @@ def fetch_employees_job(data):
         titles = data.get("job_titles", None)
         number_of_companies = data.get("number_of_companies")
         company_info = data.get("company_info")
+        SEARCH_FILTERS = data.get("search_filters")
         curl_request = data.get("curl_request")
 
         jobs = db['jobs']
@@ -1108,7 +1109,8 @@ def fetch_employees_job(data):
         _data = {
             'person_titles': titles, 
             'person_locations': locations,
-            'curl_request': curl_request
+            'curl_request': curl_request,
+            'search_filters': SEARCH_FILTERS
         }
     
         total_emails = 0
@@ -1343,7 +1345,8 @@ def unlock_emails_job(data):
     number_of_companies = data.get("number_of_companies")
     company_info = data.get("company_info")
     curl_request = data.get("curl_request")
-
+    SEARCH_FILTERS = data.get("search_filters", None)
+    print("SEARCH_FILTERS", SEARCH_FILTERS)
     jobs = db['jobs']
     job_id = str(uuid.uuid4())
     job_document = {
@@ -1379,8 +1382,8 @@ def unlock_emails_job(data):
 
             employee_details = apollo_emails_collection.find_one({
                 "email": "",
-                "titles": {"$in": titles},
-                "country": locations[0],
+                "titles": {"$in": titles} if 'titles' in SEARCH_FILTERS else { "$exists": True, "$ne": "" },
+                "country": locations[0] if 'locations' in SEARCH_FILTERS else { "$exists": True, "$ne": "" },
                 "email_status": "verified"
             })
             print("G2", employee_details)
@@ -1401,8 +1404,8 @@ def unlock_emails_job(data):
             employee_ids = apollo_emails_collection.distinct("id", {
                 "organization_id": company_id,
                 "email": "",
-                "titles": {"$in": titles},
-                "country": locations[0],
+                "titles": {"$in": titles} if 'titles' in SEARCH_FILTERS else { "$exists": True, "$ne": "" },
+                "country": locations[0] if 'locations' in SEARCH_FILTERS else { "$exists": True, "$ne": "" },
                 "email_status": "verified"
             })
             print("G4", employee_ids)
@@ -1411,8 +1414,8 @@ def unlock_emails_job(data):
             employee_ids = apollo_emails_collection.distinct("id", {
                 "organization_id": company_info['id'],
                 "email": "",
-                "titles": {"$in": titles},
-                "country": locations[0]
+                "titles": {"$in": titles} if 'titles' in SEARCH_FILTERS else { "$exists": True, "$ne": "" },
+                "country": locations[0] if 'locations' in SEARCH_FILTERS else { "$exists": True, "$ne": "" }
             })
             print("T2", employee_ids)
             company_name = company_info['name']
@@ -1514,6 +1517,8 @@ def fetch_employees_emails(request):
     locations = data.get('locations', None)
     auto = data.get("auto", False)
     titles = data.get("job_titles", None)
+    search_filters = data.get("search_filters", [])
+
     number_of_companies = data.get("number_of_companies", 1)
 
     print("loctions, job_titles", locations, titles)
@@ -1539,7 +1544,8 @@ def fetch_employees_emails(request):
         'auto': auto,
         'job_titles': titles,
         'number_of_companies': number_of_companies,
-        'curl_request': curl_request
+        'curl_request': curl_request,
+        'search_filters': search_filters
     }
     executor.submit(unlock_emails_job, temp_data)
 
